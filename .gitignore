@@ -1,0 +1,30 @@
+docs/re/
+
+# Binaries
+solo-cli
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Configuration and Secrets
+config.json
+*.json
+.env
+.env.*
+
+# OS Specific
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+
+# Editor/IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Go
+vendor/
+go.work
