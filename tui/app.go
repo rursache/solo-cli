@@ -79,6 +79,7 @@ type expensesMsg *client.ExpenseListResponse
 type queueMsg *client.QueuedExpenseResponse
 type efacturaMsg *client.EFacturaListResponse
 type errMsg error
+type deleteSuccessMsg struct{}
 
 // NewModel creates a new TUI model
 func NewModel(c *client.Client, companyID string, pageSize int) Model {
@@ -156,6 +157,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.activeTab = (m.activeTab - 1 + 5) % 5
 			m.cursor = 0
 			m.viewportOffset = 0
+		case "d", "delete", "backspace":
+			if m.activeTab == TabQueue {
+				m.loading = true
+				return m, m.deleteSelectedExpense()
+			}
 		case "up", "k":
 			if m.cursor > 0 {
 				m.cursor--
@@ -217,6 +223,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case errMsg:
 		m.err = msg
 		m.loading = false
+
+	case deleteSuccessMsg:
+		m.loading = true
+		// Refresh queue after deletion
+		return m, m.fetchQueue
 
 	case spinner.TickMsg:
 		var cmd tea.Cmd
@@ -295,7 +306,12 @@ func (m Model) View() string {
 
 	// Help
 	b.WriteString("\n")
-	b.WriteString(HelpStyle.Render("←/→ tabs • ↑/↓ navigate • r refresh • q quit"))
+	b.WriteString("\n")
+	helpText := "←/→ tabs • ↑/↓ navigate • r refresh • q quit"
+	if m.activeTab == TabQueue {
+		helpText = "←/→ tabs • ↑/↓ navigate • d delete • r refresh • q quit"
+	}
+	b.WriteString(HelpStyle.Render(helpText))
 
 	return b.String()
 }
@@ -611,4 +627,30 @@ func (m Model) renderEFactura() string {
 	}
 
 	return b.String()
+}
+
+func (m Model) deleteSelectedExpense() tea.Cmd {
+	if m.activeTab != TabQueue || m.queue == nil || len(m.queue.Items) == 0 {
+		return nil
+	}
+
+	// Safety check for index
+	idx := m.cursor
+	if idx < 0 || idx >= len(m.queue.Items) {
+		return nil
+	}
+
+	id := m.queue.Items[idx].Id
+
+	return func() tea.Msg {
+		if m.demoMode {
+			// In demo mode, just return success
+			return deleteSuccessMsg{}
+		}
+		err := m.client.DeleteExpense(id)
+		if err != nil {
+			return errMsg(err)
+		}
+		return deleteSuccessMsg{}
+	}
 }

@@ -52,7 +52,7 @@ func main() {
 	case "expenses", "expense", "exp":
 		withClient(runExpenses)
 	case "queue", "q":
-		withClient(runQueue)
+		withClientArgs(runQueue, cmdArgs)
 	case "efactura", "einvoice", "ei":
 		withClient(runEFactura)
 	case "company":
@@ -80,7 +80,7 @@ Commands:
   summary [year]  Show account summary (year, revenues, expenses, taxes)
   revenues        List revenue invoices (aliases: revenue, rev)
   expenses        List expenses (aliases: expense, exp)
-  queue           List expense queue / pending documents (alias: q)
+  queue           List expense queue (alias: q). Subcommands: delete <id>
   efactura        List e-Factura documents (aliases: einvoice, ei)
   company         Show company profile
   upload <file>   Upload expense document (alias: up)
@@ -100,6 +100,7 @@ Examples:
   solo-cli summary                  # Show current year summary
   solo-cli summary 2025             # Show 2025 summary
   solo-cli upload invoice.pdf       # Upload expense document
+  solo-cli queue delete 123         # Delete queued item
   solo-cli -c ~/my-config.json rev  # Use custom config
   solo-cli expenses | grep -i "food"
 
@@ -340,7 +341,32 @@ func runExpenses(c *client.Client) {
 	}
 }
 
-func runQueue(c *client.Client) {
+func runQueue(c *client.Client, args []string) {
+	// Handle subcommands
+	if len(args) > 0 {
+		cmd := args[0]
+		if cmd == "delete" || cmd == "del" || cmd == "rm" {
+			if len(args) < 2 {
+				fmt.Fprintln(os.Stderr, "Error: missing ID")
+				fmt.Fprintln(os.Stderr, "Usage: solo-cli queue delete <id>")
+				os.Exit(1)
+			}
+			idStr := args[1]
+			var id int
+			if _, err := fmt.Sscanf(idStr, "%d", &id); err != nil {
+				fmt.Fprintf(os.Stderr, "Error: invalid ID '%s' (must be a number)\n", idStr)
+				os.Exit(1)
+			}
+			fmt.Fprintf(os.Stderr, "Deleting queued item %d...\n", id)
+			if err := c.DeleteExpense(id); err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				os.Exit(1)
+			}
+			fmt.Println("Item deleted successfully.")
+			return
+		}
+	}
+
 	queue, err := c.ListQueuedExpenses(0, 100)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
@@ -351,7 +377,7 @@ func runQueue(c *client.Client) {
 		if q.IsOverdue {
 			overdue = "OVERDUE"
 		}
-		fmt.Printf("%s\t%d days\t%s\n", q.DocumentName, q.DaysPassed, overdue)
+		fmt.Printf("%s\t%d days\t%s\t(ID: %d)\n", q.DocumentName, q.DaysPassed, overdue, q.Id)
 	}
 }
 

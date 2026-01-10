@@ -10,7 +10,8 @@ A terminal-based user interface for [SOLO.ro](https://solo.ro), an online accoun
 - 📊 Dashboard with company info and yearly summary
 - 💰 View revenues and expenses
 - 📄 View e-Factura (national electronic invoicing system)
-- 📁 Manage expense queue
+- 📤 Upload expense documents (PDF, Images)
+- 🗑️ Delete expenses/queued documents
 - 🍪 Cookie persistence for faster logins
 
 ## Installation
@@ -84,6 +85,7 @@ solo-cli
 Navigate with keyboard:
 - `Tab` / `←` `→` - Switch between tabs
 - `↑` `↓` / `j` `k` - Navigate lists
+- `d` - Delete item (Queue tab only)
 - `r` - Refresh data
 - `q` - Quit
 
@@ -100,6 +102,7 @@ solo-cli efactura         # e-Factura documents (alias: ei)
 solo-cli queue            # Expense queue (alias: q)
 solo-cli company          # Company profile
 solo-cli upload file.pdf  # Upload expense document (alias: up)
+solo-cli queue delete 123 # Delete queued item by ID
 ```
 
 ### Global Options
@@ -129,7 +132,7 @@ Output is tab-separated for piping to other tools.
 
 This project also provides a "skill" for agentic AI tools, allowing AI assistants to interact with SOLO.ro on your behalf:
 
-- **GitHub**: [rursache/solo-cli-skill](https://github.com/rursache/solo-cli-skill)
+- **GitHub**: [skill folder](https://github.com/rursache/solo-cli/tree/master/skill)
 - **ClawdHub**: [rursache/solo-cli](https://clawdhub.com/rursache/solo-cli)
 
 ## Acknowledgments
