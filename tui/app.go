@@ -62,6 +62,7 @@ type Model struct {
 	cursor         int
 	viewportOffset int // First visible item index
 	viewportSize   int // Number of visible items
+	demoMode       bool
 
 	// Pagination
 	revenueOffset int
@@ -100,8 +101,35 @@ func NewModel(c *client.Client, companyID string, pageSize int) Model {
 	}
 }
 
+// NewDemoModel creates a TUI model with demo data for screenshots
+func NewDemoModel() Model {
+	s := spinner.New()
+	s.Spinner = spinner.Dot
+	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("#7C3AED"))
+
+	return Model{
+		activeTab:    TabDashboard,
+		spinner:      s,
+		loading:      false, // Data already loaded
+		pageSize:     100,
+		viewportSize: 10,
+		demoMode:     true,
+		// Pre-populate with demo data
+		summary:  client.GetDemoSummary(),
+		company:  client.GetDemoCompany(),
+		revenues: client.GetDemoRevenues(),
+		expenses: client.GetDemoExpenses(),
+		queue:    client.GetDemoQueue(),
+		efactura: client.GetDemoEFactura(),
+	}
+}
+
 // Init implements tea.Model
 func (m Model) Init() tea.Cmd {
+	// Demo mode: data already loaded, just tick the spinner for consistency
+	if m.demoMode {
+		return m.spinner.Tick
+	}
 	return tea.Batch(
 		m.spinner.Tick,
 		m.fetchSummary,
