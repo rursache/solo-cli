@@ -1,0 +1,26 @@
+name: Trigger Homebrew Tap Update
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  notify-tap:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Tap Update
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.TAP_GITHUB_TOKEN }}
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: 'rursache',
+              repo: 'homebrew-tap',
+              workflow_id: 'update-formula.yml',
+              ref: 'main',
+              inputs: {
+                formula: 'solo-cli',
+                tag: context.payload.release.tag_name,
+                repository: context.repo.owner + '/' + context.repo.repo
+              }
+            })
