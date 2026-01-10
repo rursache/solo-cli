@@ -12,7 +12,7 @@ import (
 	"solo-cli/tui"
 )
 
-const version = "1.0.0"
+var version = "dev"
 
 func main() {
 	// Parse global flags first
@@ -44,7 +44,7 @@ func main() {
 	case "help", "--help", "-h":
 		printHelp()
 	case "version", "--version", "-v":
-		fmt.Printf("solo-cli v%s\n", version)
+		fmt.Printf("solo-cli %s\n", version)
 	case "summary":
 		withClientArgs(runSummary, cmdArgs)
 	case "revenues", "revenue", "rev":
