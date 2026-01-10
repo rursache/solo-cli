@@ -59,6 +59,8 @@ func main() {
 		withClient(runCompany)
 	case "tui":
 		runTUI()
+	case "demo":
+		runDemoTUI()
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown command: %s\n\n", cmd)
 		printHelp()
@@ -80,6 +82,7 @@ Commands:
   efactura        List e-Factura documents (aliases: einvoice, ei)
   company         Show company profile
   tui             Start interactive TUI (default when no command)
+  demo            Start TUI with demo data (for screenshots)
 
 Options:
   --config, -c    Path to custom config file
@@ -267,6 +270,15 @@ func runTUI() {
 	}
 
 	model := tui.NewModel(apiClient, cfg.CompanyID, cfg.PageSize)
+	p := tea.NewProgram(model, tea.WithAltScreen())
+	if _, err := p.Run(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error running TUI: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func runDemoTUI() {
+	model := tui.NewDemoModel()
 	p := tea.NewProgram(model, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error running TUI: %v\n", err)

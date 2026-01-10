@@ -2,6 +2,8 @@
 
 A terminal-based user interface for [SOLO.ro](https://solo.ro), an online accounting platform for Romanian freelancers (PFA).
 
+![Dashboard](docs/tui_1.jpg)
+
 ## Features
 
 - 🔐 Secure authentication with SOLO.ro
@@ -13,14 +15,32 @@ A terminal-based user interface for [SOLO.ro](https://solo.ro), an online accoun
 
 ## Installation
 
+### macOS (Homebrew)
+
 ```bash
 brew install rursache/tap/solo-cli
 ```
 
-Or build from source:
+### Windows / Linux / macOS (Go)
+
 ```bash
+go install github.com/rursache/solo-cli@latest
+```
+
+### Build from Source
+
+```bash
+git clone https://github.com/rursache/solo-cli.git
+cd solo-cli
 go build -o solo-cli .
 ```
+
+## Screenshots
+
+![Revenues](docs/tui_2.jpg)
+![Expenses](docs/tui_3.jpg)
+![e-Factura](docs/tui_4.jpg)
+![Queue](docs/tui_5.jpg)
 
 ## Configuration
 
