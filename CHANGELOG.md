@@ -1,3 +1,8 @@
+## [1.1.1]
+
+### Fixed
+- **CLI Version**: The app follows the version tag from its release when using the `solo-cli -v` command
+
 ## [1.1.0]
 
 ### Added
