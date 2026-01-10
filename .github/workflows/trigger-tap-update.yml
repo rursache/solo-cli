@@ -1,6 +1,7 @@
 name: Trigger Homebrew Tap Update
 
 on:
+  workflow_dispatch:
   release:
     types: [published]
 
