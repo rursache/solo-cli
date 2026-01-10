@@ -57,6 +57,8 @@ func main() {
 		withClient(runEFactura)
 	case "company":
 		withClient(runCompany)
+	case "upload", "up":
+		withClientArgs(runUpload, cmdArgs)
 	case "tui":
 		runTUI()
 	case "demo":
@@ -81,6 +83,7 @@ Commands:
   queue           List expense queue / pending documents (alias: q)
   efactura        List e-Factura documents (aliases: einvoice, ei)
   company         Show company profile
+  upload <file>   Upload expense document (alias: up)
   tui             Start interactive TUI (default when no command)
   demo            Start TUI with demo data (for screenshots)
 
@@ -96,6 +99,7 @@ Examples:
   solo-cli                          # Start TUI
   solo-cli summary                  # Show current year summary
   solo-cli summary 2025             # Show 2025 summary
+  solo-cli upload invoice.pdf       # Upload expense document
   solo-cli -c ~/my-config.json rev  # Use custom config
   solo-cli expenses | grep -i "food"
 
@@ -378,4 +382,31 @@ func runCompany(c *client.Client) {
 	fmt.Printf("CUI: %s\n", company.Code1)
 	fmt.Printf("Reg: %s\n", company.Code2)
 	fmt.Printf("Address: %s\n", company.Address)
+}
+
+func runUpload(c *client.Client, args []string) {
+	if len(args) < 1 {
+		fmt.Fprintln(os.Stderr, "Error: no file specified")
+		fmt.Fprintln(os.Stderr, "Usage: solo-cli upload <file>")
+		os.Exit(1)
+	}
+
+	filePath := args[0]
+
+	// Check if file exists
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		fmt.Fprintf(os.Stderr, "Error: file not found: %s\n", filePath)
+		os.Exit(1)
+	}
+
+	fmt.Fprintf(os.Stderr, "Uploading %s...\n", filePath)
+
+	filename, err := c.UploadDocument(filePath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("Uploaded: %s\n", filename)
+	fmt.Println("Document added to expense queue for processing.")
 }

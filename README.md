@@ -99,6 +99,7 @@ solo-cli expenses         # List expenses (alias: exp)
 solo-cli efactura         # e-Factura documents (alias: ei)
 solo-cli queue            # Expense queue (alias: q)
 solo-cli company          # Company profile
+solo-cli upload file.pdf  # Upload expense document (alias: up)
 ```
 
 ### Global Options
