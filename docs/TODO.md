@@ -1,1 +1,3 @@
-1. we need to implement the expense uploading, as per the docs/re/upload-confirm and docs/re/upload files. this only makes sense in the cli (non-interactive mode) i think
+i think instead of "solo-cli upload delete ID" its smarter to have "solo-cli queue delete ID", makes more sense
+
+✅ Done
