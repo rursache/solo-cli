@@ -1,3 +1,10 @@
+## [1.2.0]
+
+### Added
+- **Rejected Expenses**: New support for rejected expenses from the SOLO.ro API
+- **TUI**: Expenses tab now shows rejected expenses with warning banner and rejection reason
+- **CLI**: `solo-cli expenses` command now displays rejected expenses with reason before listing normal expenses
+
 ## [1.1.1]
 
 ### Fixed

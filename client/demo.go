@@ -94,6 +94,19 @@ func GetDemoQueue() *QueuedExpenseResponse {
 	}
 }
 
+// GetDemoRejectedExpenses returns mock rejected expense data for demo mode
+func GetDemoRejectedExpenses() *RejectedExpenseResponse {
+	items := []RejectedExpense{
+		{Id: 101, DocumentCode: "doc_abc123", DocumentName: "factura_duplicat.pdf", DocumentMimeType: "application/pdf", Reason: "Vom procesa în curând echivalentul din e-Factura", AllowResubmit: false, CreatedOn: "2025-01-15T10:30:00+02:00", RejectedOn: "2025-01-17T14:00:00+02:00", DaysPassed: 2},
+	}
+
+	total := len(items)
+	return &RejectedExpenseResponse{
+		Items:        items,
+		TotalResults: &total,
+	}
+}
+
 // GetDemoEFactura returns mock e-factura data for demo mode
 func GetDemoEFactura() *EFacturaListResponse {
 	items := []EFactura{
