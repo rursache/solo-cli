@@ -68,6 +68,25 @@ type QueuedExpenseResponse struct {
 	TotalResults *int            `json:"TotalResults"`
 }
 
+// RejectedExpense represents an expense that was rejected
+type RejectedExpense struct {
+	Id               int    `json:"Id"`
+	DocumentCode     string `json:"DocumentCode"`
+	DocumentName     string `json:"DocumentName"`
+	DocumentMimeType string `json:"DocumentMimeType"`
+	Reason           string `json:"Reason"`
+	AllowResubmit    bool   `json:"AllowResubmit"`
+	CreatedOn        string `json:"CreatedOn"`
+	RejectedOn       string `json:"RejectedOn"`
+	DaysPassed       int    `json:"DaysPassed"`
+}
+
+// RejectedExpenseResponse represents response from rejected expenses endpoint
+type RejectedExpenseResponse struct {
+	Items        []RejectedExpense `json:"Items"`
+	TotalResults *int              `json:"TotalResults"`
+}
+
 // ListExpenses fetches the list of expenses
 func (c *Client) ListExpenses(startIndex, maxResults int) (*ExpenseListResponse, error) {
 	reqBody := ExpenseListRequest{
@@ -198,6 +217,55 @@ func (c *Client) ListQueuedExpenses(startIndex, maxResults int) (*QueuedExpenseR
 	}
 
 	var result QueuedExpenseResponse
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, err
+	}
+
+	return &result, nil
+}
+
+// ListRejectedExpenses fetches expenses that were rejected
+func (c *Client) ListRejectedExpenses(startIndex, maxResults int) (*RejectedExpenseResponse, error) {
+	reqBody := ExpenseListRequest{
+		SearchText: "",
+		StartIndex: startIndex,
+		MaxResults: maxResults,
+		SortBy:     "",
+		SortAsc:    true,
+	}
+
+	bodyData, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", baseURL+"/proxy/accounting/expenses/rejected", bytes.NewReader(bodyData))
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Accept", "application/json, text/plain, */*")
+	req.Header.Set("Content-Type", "application/json;charset=UTF-8")
+	req.Header.Set("User-Agent", c.userAgent)
+	req.Header.Set("Origin", baseURL)
+	req.Header.Set("Referer", baseURL+"/expenses")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to list rejected expenses: status %d", resp.StatusCode)
+	}
+
+	var result RejectedExpenseResponse
 	if err := json.Unmarshal(body, &result); err != nil {
 		return nil, err
 	}

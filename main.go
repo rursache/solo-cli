@@ -331,6 +331,16 @@ func runRevenues(c *client.Client) {
 }
 
 func runExpenses(c *client.Client) {
+	// Check for rejected expenses first
+	rejected, err := c.ListRejectedExpenses(0, 100)
+	if err == nil && len(rejected.Items) > 0 {
+		fmt.Fprintf(os.Stderr, "⚠️  %d rejected expense(s):\n", len(rejected.Items))
+		for _, r := range rejected.Items {
+			fmt.Fprintf(os.Stderr, "   • %s - %s\n", r.DocumentName, r.Reason)
+		}
+		fmt.Fprintln(os.Stderr)
+	}
+
 	expenses, err := c.ListExpenses(0, 100)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
