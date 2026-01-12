@@ -51,6 +51,7 @@ type Model struct {
 	company   *client.CompanyInfo
 	revenues  *client.RevenueListResponse
 	expenses  *client.ExpenseListResponse
+	rejected  *client.RejectedExpenseResponse
 	queue     *client.QueuedExpenseResponse
 	efactura  *client.EFacturaListResponse
 	companyID string
@@ -76,6 +77,7 @@ type summaryMsg *client.Summary
 type companyMsg *client.CompanyInfo
 type revenuesMsg *client.RevenueListResponse
 type expensesMsg *client.ExpenseListResponse
+type rejectedMsg *client.RejectedExpenseResponse
 type queueMsg *client.QueuedExpenseResponse
 type efacturaMsg *client.EFacturaListResponse
 type errMsg error
@@ -120,6 +122,7 @@ func NewDemoModel() Model {
 		company:  client.GetDemoCompany(),
 		revenues: client.GetDemoRevenues(),
 		expenses: client.GetDemoExpenses(),
+		rejected: client.GetDemoRejectedExpenses(),
 		queue:    client.GetDemoQueue(),
 		efactura: client.GetDemoEFactura(),
 	}
@@ -137,6 +140,7 @@ func (m Model) Init() tea.Cmd {
 		m.fetchCompany,
 		m.fetchRevenues,
 		m.fetchExpenses,
+		m.fetchRejected,
 		m.fetchQueue,
 		m.fetchEFactura,
 	)
@@ -187,6 +191,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.fetchCompany,
 				m.fetchRevenues,
 				m.fetchExpenses,
+				m.fetchRejected,
 				m.fetchQueue,
 				m.fetchEFactura,
 			)
@@ -210,6 +215,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case expensesMsg:
 		m.expenses = msg
+		m.checkLoadingDone()
+
+	case rejectedMsg:
+		m.rejected = msg
 		m.checkLoadingDone()
 
 	case queueMsg:
@@ -239,7 +248,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) checkLoadingDone() {
-	if m.summary != nil && m.revenues != nil && m.expenses != nil && m.queue != nil && m.efactura != nil {
+	if m.summary != nil && m.revenues != nil && m.expenses != nil && m.rejected != nil && m.queue != nil && m.efactura != nil {
 		m.loading = false
 	}
 }
@@ -437,11 +446,26 @@ func (m Model) renderRevenues() string {
 }
 
 func (m Model) renderExpenses() string {
-	if m.expenses == nil || len(m.expenses.Items) == 0 {
-		return "No expenses found"
+	var b strings.Builder
+
+	// Show rejected expenses warning if any
+	if m.rejected != nil && len(m.rejected.Items) > 0 {
+		b.WriteString(ErrorStyle.Render(fmt.Sprintf("⚠️  %d rejected expense(s):", len(m.rejected.Items))))
+		b.WriteString("\n")
+		for _, r := range m.rejected.Items {
+			docName := truncate(r.DocumentName, 30)
+			reason := truncate(r.Reason, 50)
+			b.WriteString(WarningStyle().Render(fmt.Sprintf("   • %s - %s", docName, reason)))
+			b.WriteString("\n")
+		}
+		b.WriteString("\n")
 	}
 
-	var b strings.Builder
+	if m.expenses == nil || len(m.expenses.Items) == 0 {
+		b.WriteString("No expenses found")
+		return b.String()
+	}
+
 	total := len(m.expenses.Items)
 
 	b.WriteString(SummaryLabelStyle.Render(fmt.Sprintf("Showing %d-%d of %d", m.viewportOffset+1, min(m.viewportOffset+m.viewportSize, total), total)))
@@ -556,6 +580,15 @@ func (m Model) fetchExpenses() tea.Msg {
 		return errMsg(err)
 	}
 	return expensesMsg(expenses)
+}
+
+func (m Model) fetchRejected() tea.Msg {
+	rejected, err := m.client.ListRejectedExpenses(0, m.pageSize)
+	if err != nil {
+		// Rejected expenses are optional, don't fail if unavailable
+		return rejectedMsg(&client.RejectedExpenseResponse{Items: []client.RejectedExpense{}})
+	}
+	return rejectedMsg(rejected)
 }
 
 func (m Model) fetchQueue() tea.Msg {
