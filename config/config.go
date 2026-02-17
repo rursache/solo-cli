@@ -36,6 +36,18 @@ func SetConfigPath(path string) {
 	customConfigPath = path
 }
 
+// GetConfigDir returns the full path to the config directory
+func GetConfigDir() (string, error) {
+	if customConfigPath != "" {
+		return filepath.Dir(customConfigPath), nil
+	}
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(homeDir, configDirName), nil
+}
+
 // GetConfigPath returns the full path to the config file
 func GetConfigPath() (string, error) {
 	if customConfigPath != "" {

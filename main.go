@@ -33,6 +33,7 @@ func main() {
 
 	// Handle no args or help
 	if len(args) < 1 {
+		maybePromptSkillInstall()
 		runTUI()
 		return
 	}
@@ -59,7 +60,10 @@ func main() {
 		withClient(runCompany)
 	case "upload", "up":
 		withClientArgs(runUpload, cmdArgs)
+	case "setup-skills":
+		runSetupSkills()
 	case "tui":
+		maybePromptSkillInstall()
 		runTUI()
 	case "demo":
 		runDemoTUI()
@@ -84,6 +88,7 @@ Commands:
   efactura        List e-Factura documents (aliases: einvoice, ei)
   company         Show company profile
   upload <file>   Upload expense document (alias: up)
+  setup-skills    Install AI skills for Claude Code and other agents
   tui             Start interactive TUI (default when no command)
   demo            Start TUI with demo data (for screenshots)
 
