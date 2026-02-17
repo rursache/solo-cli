@@ -1,3 +1,10 @@
+## [1.3.0]
+
+### Added
+- **Setup Skills**: New `solo-cli setup-skills` command to install AI skills for Claude Code and other agents
+- **Auto-prompt**: On first interactive run, prompts to install AI skills (downloads latest from GitHub)
+- **Homebrew**: Simplified formula, skill installation handled by the binary itself
+
 ## [1.2.0]
 
 ### Added
