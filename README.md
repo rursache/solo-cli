@@ -13,6 +13,7 @@ A terminal-based user interface for [SOLO.ro](https://solo.ro), an online accoun
 - 📤 Upload expense documents (PDF, Images)
 - 🗑️ Delete expenses/queued documents
 - 🍪 Cookie persistence for faster logins
+- 🧮 Tax calculator with CAS/CASS/income tax breakdown and threshold buffers
 
 ## Installation
 
@@ -42,6 +43,7 @@ go build -o solo-cli .
 ![Expenses](docs/tui_3.jpg)
 ![e-Factura](docs/tui_4.jpg)
 ![Queue](docs/tui_5.jpg)
+![Taxes](docs/tui_6.jpg)
 
 ## Configuration
 
@@ -64,6 +66,36 @@ On first run, the CLI creates a config at `~/.config/solo-cli/config.json`:
 | company_id | No | Company ID for profile display |
 | page_size | No | Number of items to fetch (default: 100) |
 | user_agent | No | Custom HTTP user agent string |
+
+### Tax Configuration
+
+On first run of the `taxes` command (or TUI Taxes tab), the CLI creates `~/.config/solo-cli/taxes.json` with default 2026 values:
+
+```json
+{
+  "year": 2026,
+  "salariu_minim_brut": 4325,
+  "income_tax_percent": 10,
+  "cas_percent": 25,
+  "cas_thresholds": [
+    { "min_salaries": 0,  "max_salaries": 12, "base_salaries": 0,  "label": "Fără CAS (sub 12 salarii)" },
+    { "min_salaries": 12, "max_salaries": 24, "base_salaries": 12, "label": "CAS pe 12 salarii" },
+    { "min_salaries": 24, "max_salaries": 0,  "base_salaries": 24, "label": "CAS pe 24 salarii" }
+  ],
+  "cass_percent": 10,
+  "cass_thresholds": [
+    { "min_salaries": 0,  "max_salaries": 6,  "base_salaries": 6,  "label": "CASS minim (6 salarii)" },
+    { "min_salaries": 6,  "max_salaries": 72, "base_salaries": -1, "label": "CASS proporțional" },
+    { "min_salaries": 72, "max_salaries": 0,  "base_salaries": 72, "label": "CASS plafonat (72 salarii)" }
+  ]
+}
+```
+
+**Threshold fields:**
+- `min_salaries` / `max_salaries`: income bracket bounds in multiples of SMB (`0` = unlimited)
+- `base_salaries`: what to multiply by the percentage — positive = fixed multiple of SMB, `0` = exempt, `-1` = proportional (use actual net income)
+
+Update `salariu_minim_brut` when it changes, and adjust thresholds as tax law evolves.
 
 ### Finding Your Company ID
 
@@ -89,13 +121,15 @@ Navigate with keyboard:
 - `r` - Refresh data
 - `q` - Quit
 
-**Tabs:** Dashboard → Revenues → Expenses → e-Factura → Queue
+**Tabs:** Dashboard → Revenues → Expenses → e-Factura → Queue → Taxes
 
 ### CLI Commands
 
 ```bash
 solo-cli summary          # Account summary (current year)
 solo-cli summary 2025     # Summary for specific year
+solo-cli taxes            # Tax breakdown (alias: tax)
+solo-cli taxes 2025       # Tax breakdown for specific year
 solo-cli revenues         # List revenues (alias: rev)
 solo-cli expenses         # List expenses (alias: exp)
 solo-cli efactura         # e-Factura documents (alias: ei)
@@ -137,7 +171,7 @@ This project also provides a "skill" for agentic AI tools, allowing AI assistant
 
 ## Acknowledgments
 
-This entire codebase was created using [Claude Opus 4.5](https://www.anthropic.com/claude). Issues and PRs are welcome.
+This entire codebase was created using [Claude Opus 4.5](https://www.anthropic.com/claude) and [Claude Opus 4.6](https://www.anthropic.com/claude). Issues and PRs are welcome.
 
 ## License
 

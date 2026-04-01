@@ -9,6 +9,7 @@ import (
 
 	"solo-cli/client"
 	"solo-cli/config"
+	"solo-cli/taxes"
 	"solo-cli/tui"
 )
 
@@ -58,6 +59,8 @@ func main() {
 		withClient(runEFactura)
 	case "company":
 		withClient(runCompany)
+	case "taxes", "tax":
+		withClientArgs(runTaxes, cmdArgs)
 	case "upload", "up":
 		withClientArgs(runUpload, cmdArgs)
 	case "setup-skills":
@@ -82,6 +85,7 @@ Usage:
 
 Commands:
   summary [year]  Show account summary (year, revenues, expenses, taxes)
+  taxes [year]    Show tax breakdown with thresholds (alias: tax)
   revenues        List revenue invoices (aliases: revenue, rev)
   expenses        List expenses (aliases: expense, exp)
   queue           List expense queue (alias: q). Subcommands: delete <id>
@@ -423,6 +427,62 @@ func runCompany(c *client.Client) {
 	fmt.Printf("CUI: %s\n", company.Code1)
 	fmt.Printf("Reg: %s\n", company.Code2)
 	fmt.Printf("Address: %s\n", company.Address)
+}
+
+func runTaxes(c *client.Client, args []string) {
+	// Parse optional year argument
+	year := 0
+	if len(args) > 0 {
+		if _, err := fmt.Sscanf(args[0], "%d", &year); err != nil {
+			fmt.Fprintf(os.Stderr, "Invalid year: %s\n", args[0])
+			os.Exit(1)
+		}
+	}
+
+	summary, err := c.GetSummaryForYear(year)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	taxCfg, err := config.LoadTaxes()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error loading taxes config: %v\n", err)
+		os.Exit(1)
+	}
+
+	result := taxes.Calculate(summary.TotalRevenues, summary.TotalDeductibleExpenses, taxCfg)
+
+	fmt.Printf("Tax Breakdown (%d)\n", summary.Year)
+	fmt.Printf("══════════════════════════════════════════\n")
+	fmt.Printf("Total Revenues:       %s\n", taxes.FormatRON(summary.TotalRevenues))
+	fmt.Printf("Deductible Expenses:  %s\n", taxes.FormatRON(summary.TotalDeductibleExpenses))
+	fmt.Printf("Net Income:           %s\n", taxes.FormatRON(result.NetIncome))
+	fmt.Printf("  (%.1f salarii minime brute)\n", result.SalariesCount)
+	fmt.Println()
+
+	fmt.Printf("CAS (%.0f%%): %s\n", result.CAS.Percentage, result.CAS.Label)
+	fmt.Printf("  Base: %s → Amount: %s\n", taxes.FormatRON(result.CAS.Base), taxes.FormatRON(result.CAS.Amount))
+	if result.CAS.NextLabel != "" {
+		fmt.Printf("  Buffer: %s (%s)\n", taxes.FormatBuffer(result.CAS.BufferToNext), result.CAS.NextLabel)
+	}
+	fmt.Println()
+
+	fmt.Printf("CASS (%.0f%%): %s\n", result.CASS.Percentage, result.CASS.Label)
+	fmt.Printf("  Base: %s → Amount: %s\n", taxes.FormatRON(result.CASS.Base), taxes.FormatRON(result.CASS.Amount))
+	if result.CASS.NextLabel != "" {
+		fmt.Printf("  Buffer: %s (%s)\n", taxes.FormatBuffer(result.CASS.BufferToNext), result.CASS.NextLabel)
+	}
+	fmt.Println()
+
+	fmt.Printf("Income Tax (%.0f%%): %s\n", taxCfg.IncomeTaxPercent, taxes.FormatRON(result.IncomeTax))
+	fmt.Printf("  Base: Net Income - CAS - CASS = %s\n", taxes.FormatRON(result.NetIncome-result.CAS.Amount-result.CASS.Amount))
+	fmt.Println()
+
+	fmt.Printf("══════════════════════════════════════════\n")
+	fmt.Printf("Total Taxes:          %s\n", taxes.FormatRON(result.TotalTaxes))
+	fmt.Printf("Net After Tax:        %s\n", taxes.FormatRON(result.NetAfterTax))
+	fmt.Printf("Effective Tax Rate:   %.1f%%\n", result.EffectiveRate)
 }
 
 func runUpload(c *client.Client, args []string) {

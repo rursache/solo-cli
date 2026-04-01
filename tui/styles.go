@@ -90,4 +90,15 @@ var (
 	// Non-deductible style
 	NonDeductibleStyle = lipgloss.NewStyle().
 				Foreground(dangerColor)
+
+	// Buffer threshold styles
+	secondaryStyle = lipgloss.NewStyle().Foreground(secondaryColor).Bold(true)
+	warningStyle   = lipgloss.NewStyle().Foreground(warningColor).Bold(true)
+	dangerStyle    = lipgloss.NewStyle().Foreground(dangerColor).Bold(true)
+
+	// Compact box style (no margin) for taxes tab
+	CompactBoxStyle = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(primaryColor).
+			Padding(0, 2)
 )
