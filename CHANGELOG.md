@@ -1,3 +1,11 @@
+## [1.4.0]
+
+### Added
+- **Tax Calculator**: New `solo-cli taxes` command with full CAS, CASS, and income tax breakdown
+- **TUI Taxes Tab**: New scrollable Taxes tab showing tax breakdown, threshold buffers, and effective rate
+- **Configurable Tax Rules**: Auto-generated `~/.config/solo-cli/taxes.json` with editable thresholds, percentages, and minimum gross salary (salariu minim brut)
+- **Threshold Buffers**: Shows how much income remains before reaching the next CAS/CASS bracket, with color-coded warnings (green/amber/red)
+
 ## [1.3.0]
 
 ### Added
@@ -35,4 +43,3 @@
 - Initial release.
 - CLI and TUI for SOLO.ro accounting platform.
 - View dashboard, revenues, expenses, e-Factura, and queue.
-

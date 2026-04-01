@@ -5,6 +5,7 @@ Usage:
 
 Commands:
   summary [year]  Show account summary (year, revenues, expenses, taxes)
+  taxes [year]    Show tax breakdown with thresholds (alias: tax)
   revenues        List revenue invoices (aliases: revenue, rev)
   expenses        List expenses (aliases: expense, exp)
   queue           List expense queue (alias: q). Subcommands: delete <id>

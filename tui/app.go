@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	"solo-cli/client"
+	"solo-cli/config"
+	"solo-cli/taxes"
 
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
@@ -20,7 +22,10 @@ const (
 	TabExpenses
 	TabEFactura
 	TabQueue
+	TabTaxes
 )
+
+const tabCount = 6
 
 func (t Tab) String() string {
 	switch t {
@@ -34,6 +39,8 @@ func (t Tab) String() string {
 		return "e-Factura"
 	case TabQueue:
 		return "Queue"
+	case TabTaxes:
+		return "Taxes"
 	default:
 		return "Unknown"
 	}
@@ -47,14 +54,16 @@ type Model struct {
 	height    int
 
 	// Data
-	summary   *client.Summary
-	company   *client.CompanyInfo
-	revenues  *client.RevenueListResponse
-	expenses  *client.ExpenseListResponse
-	rejected  *client.RejectedExpenseResponse
-	queue     *client.QueuedExpenseResponse
-	efactura  *client.EFacturaListResponse
-	companyID string
+	summary      *client.Summary
+	company      *client.CompanyInfo
+	revenues     *client.RevenueListResponse
+	expenses     *client.ExpenseListResponse
+	rejected     *client.RejectedExpenseResponse
+	queue        *client.QueuedExpenseResponse
+	efactura     *client.EFacturaListResponse
+	companyID    string
+	taxBreakdown *taxes.TaxBreakdown
+	taxConfig    *config.TaxConfig
 
 	// UI state
 	loading        bool
@@ -63,6 +72,8 @@ type Model struct {
 	cursor         int
 	viewportOffset int // First visible item index
 	viewportSize   int // Number of visible items
+	taxesScroll    int // Scroll offset for taxes tab
+	taxesLines     int // Total line count of taxes content
 	demoMode       bool
 
 	// Pagination
@@ -93,6 +104,9 @@ func NewModel(c *client.Client, companyID string, pageSize int) Model {
 		pageSize = 100 // Default
 	}
 
+	// Load tax config (non-fatal if it fails)
+	taxCfg, _ := config.LoadTaxes()
+
 	return Model{
 		client:       c,
 		activeTab:    TabDashboard,
@@ -101,6 +115,7 @@ func NewModel(c *client.Client, companyID string, pageSize int) Model {
 		pageSize:     pageSize,
 		viewportSize: 10, // Show 10 at a time (keeps header visible)
 		companyID:    companyID,
+		taxConfig:    taxCfg,
 	}
 }
 
@@ -110,6 +125,10 @@ func NewDemoModel() Model {
 	s.Spinner = spinner.Dot
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("#7C3AED"))
 
+	demoSummary := client.GetDemoSummary()
+	taxCfg := config.DefaultTaxConfig()
+	taxBreakdown := taxes.Calculate(demoSummary.TotalRevenues, demoSummary.TotalDeductibleExpenses, taxCfg)
+
 	return Model{
 		activeTab:    TabDashboard,
 		spinner:      s,
@@ -117,8 +136,10 @@ func NewDemoModel() Model {
 		pageSize:     100,
 		viewportSize: 10,
 		demoMode:     true,
+		taxConfig:    taxCfg,
+		taxBreakdown: taxBreakdown,
 		// Pre-populate with demo data
-		summary:  client.GetDemoSummary(),
+		summary:  demoSummary,
 		company:  client.GetDemoCompany(),
 		revenues: client.GetDemoRevenues(),
 		expenses: client.GetDemoExpenses(),
@@ -154,33 +175,51 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "q", "ctrl+c":
 			return m, tea.Quit
 		case "tab", "right", "l":
-			m.activeTab = (m.activeTab + 1) % 5
+			m.activeTab = (m.activeTab + 1) % tabCount
 			m.cursor = 0
 			m.viewportOffset = 0
+			m.taxesScroll = 0
 		case "shift+tab", "left", "h":
-			m.activeTab = (m.activeTab - 1 + 5) % 5
+			m.activeTab = (m.activeTab - 1 + tabCount) % tabCount
 			m.cursor = 0
 			m.viewportOffset = 0
+			m.taxesScroll = 0
 		case "d", "delete", "backspace":
 			if m.activeTab == TabQueue {
 				m.loading = true
 				return m, m.deleteSelectedExpense()
 			}
 		case "up", "k":
-			if m.cursor > 0 {
+			if m.activeTab == TabTaxes {
+				if m.taxesScroll > 0 {
+					m.taxesScroll--
+				}
+			} else if m.cursor > 0 {
 				m.cursor--
-				// Scroll viewport up if cursor moves above visible area
 				if m.cursor < m.viewportOffset {
 					m.viewportOffset = m.cursor
 				}
 			}
 		case "down", "j":
-			maxCursor := m.getMaxCursor()
-			if m.cursor < maxCursor-1 {
-				m.cursor++
-				// Scroll viewport down if cursor moves below visible area
-				if m.cursor >= m.viewportOffset+m.viewportSize {
-					m.viewportOffset = m.cursor - m.viewportSize + 1
+			if m.activeTab == TabTaxes {
+				availHeight := m.height - 7
+				if availHeight < 5 {
+					availHeight = 5
+				}
+				maxScroll := m.taxesLines - availHeight
+				if maxScroll < 0 {
+					maxScroll = 0
+				}
+				if m.taxesScroll < maxScroll {
+					m.taxesScroll++
+				}
+			} else {
+				maxCursor := m.getMaxCursor()
+				if m.cursor < maxCursor-1 {
+					m.cursor++
+					if m.cursor >= m.viewportOffset+m.viewportSize {
+						m.viewportOffset = m.cursor - m.viewportSize + 1
+					}
 				}
 			}
 		case "r":
@@ -200,9 +239,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+		if m.taxBreakdown != nil && m.taxesLines == 0 {
+			m.taxesLines = len(strings.Split(m.renderTaxes(), "\n"))
+		}
 
 	case summaryMsg:
 		m.summary = msg
+		if m.summary != nil && m.taxConfig != nil {
+			m.taxBreakdown = taxes.Calculate(m.summary.TotalRevenues, m.summary.TotalDeductibleExpenses, m.taxConfig)
+			m.taxesLines = len(strings.Split(m.renderTaxes(), "\n"))
+		}
 		m.checkLoadingDone()
 
 	case companyMsg:
@@ -310,6 +356,32 @@ func (m Model) View() string {
 			b.WriteString(m.renderQueue())
 		case TabEFactura:
 			b.WriteString(m.renderEFactura())
+		case TabTaxes:
+			content := m.renderTaxes()
+			lines := strings.Split(content, "\n")
+			// Available height: total height minus header (title+tabs = ~4 lines) and footer (help = ~3 lines)
+			availHeight := m.height - 7
+			if availHeight < 5 {
+				availHeight = 5
+			}
+			// Clamp scroll
+			maxScroll := len(lines) - availHeight
+			if maxScroll < 0 {
+				maxScroll = 0
+			}
+			if m.taxesScroll > maxScroll {
+				m.taxesScroll = maxScroll
+			}
+			// Slice visible lines
+			end := m.taxesScroll + availHeight
+			if end > len(lines) {
+				end = len(lines)
+			}
+			b.WriteString(strings.Join(lines[m.taxesScroll:end], "\n"))
+			if m.taxesScroll > 0 || end < len(lines) {
+				b.WriteString("\n")
+				b.WriteString(SummaryLabelStyle.Render("↑↓ scroll to see more"))
+			}
 		}
 	}
 
@@ -326,7 +398,7 @@ func (m Model) View() string {
 }
 
 func (m Model) renderTabs() string {
-	tabs := []Tab{TabDashboard, TabRevenues, TabExpenses, TabEFactura, TabQueue}
+	tabs := []Tab{TabDashboard, TabRevenues, TabExpenses, TabEFactura, TabQueue, TabTaxes}
 	var parts []string
 
 	for _, tab := range tabs {
@@ -658,6 +730,128 @@ func (m Model) renderEFactura() string {
 		}
 		b.WriteString("\n")
 	}
+
+	return b.String()
+}
+
+func (m Model) renderTaxes() string {
+	if m.taxBreakdown == nil {
+		if m.taxConfig == nil {
+			return ErrorStyle.Render("Could not load taxes.json config")
+		}
+		return LoadingStyle.Render("Loading tax data...")
+	}
+
+	t := m.taxBreakdown
+	var b strings.Builder
+
+	// Header
+	yearStr := ""
+	if m.summary != nil {
+		yearStr = fmt.Sprintf(" (%d)", m.summary.Year)
+	}
+	b.WriteString(TitleStyle.Render(fmt.Sprintf("Tax Breakdown%s", yearStr)))
+	b.WriteString("\n")
+
+	// Net income summary
+	incomeContent := fmt.Sprintf(
+		"%s %s\n%s %s\n%s %s (%.1f @ %.0f RON salariu minim brut)",
+		SummaryLabelStyle.Render("Total Revenues:"),
+		SummaryValueStyle.Render(taxes.FormatRON(m.summary.TotalRevenues)),
+		SummaryLabelStyle.Render("Deductible Expenses:"),
+		SummaryValueStyle.Render(taxes.FormatRON(m.summary.TotalDeductibleExpenses)),
+		SummaryLabelStyle.Render("Net Income:"),
+		SummaryValueStyle.Render(taxes.FormatRON(t.NetIncome)),
+		t.SalariesCount,
+		t.SalariuMinimBrut,
+	)
+	b.WriteString(CompactBoxStyle.Render(incomeContent))
+	b.WriteString("\n")
+
+	// CAS
+	casContent := fmt.Sprintf(
+		"%s %s\n%s %s → %s %s",
+		SummaryLabelStyle.Render("Bracket:"),
+		t.CAS.Label,
+		SummaryLabelStyle.Render("Base:"),
+		SummaryValueStyle.Render(taxes.FormatRON(t.CAS.Base)),
+		SummaryLabelStyle.Render("Amount:"),
+		SummaryValueStyle.Render(taxes.FormatRON(t.CAS.Amount)),
+	)
+	if t.CAS.NextLabel != "" {
+		bufferStyle := secondaryStyle
+		if t.CAS.BufferToNext < 5000 {
+			bufferStyle = dangerStyle
+		} else if t.CAS.BufferToNext < 15000 {
+			bufferStyle = warningStyle
+		}
+		casContent += fmt.Sprintf("\n%s %s → %s",
+			SummaryLabelStyle.Render("Buffer:"),
+			bufferStyle.Render(taxes.FormatRON(t.CAS.BufferToNext)),
+			SummaryLabelStyle.Render(t.CAS.NextLabel),
+		)
+	}
+	b.WriteString(SummaryLabelStyle.Render(fmt.Sprintf("CAS (%.0f%%)", t.CAS.Percentage)))
+	b.WriteString("\n")
+	b.WriteString(CompactBoxStyle.Render(casContent))
+	b.WriteString("\n")
+
+	// CASS
+	cassContent := fmt.Sprintf(
+		"%s %s\n%s %s → %s %s",
+		SummaryLabelStyle.Render("Bracket:"),
+		t.CASS.Label,
+		SummaryLabelStyle.Render("Base:"),
+		SummaryValueStyle.Render(taxes.FormatRON(t.CASS.Base)),
+		SummaryLabelStyle.Render("Amount:"),
+		SummaryValueStyle.Render(taxes.FormatRON(t.CASS.Amount)),
+	)
+	if t.CASS.NextLabel != "" {
+		bufferStyle := secondaryStyle
+		if t.CASS.BufferToNext < 5000 {
+			bufferStyle = dangerStyle
+		} else if t.CASS.BufferToNext < 15000 {
+			bufferStyle = warningStyle
+		}
+		cassContent += fmt.Sprintf("\n%s %s → %s",
+			SummaryLabelStyle.Render("Buffer:"),
+			bufferStyle.Render(taxes.FormatRON(t.CASS.BufferToNext)),
+			SummaryLabelStyle.Render(t.CASS.NextLabel),
+		)
+	}
+	b.WriteString(SummaryLabelStyle.Render(fmt.Sprintf("CASS (%.0f%%)", t.CASS.Percentage)))
+	b.WriteString("\n")
+	b.WriteString(CompactBoxStyle.Render(cassContent))
+	b.WriteString("\n")
+
+	// Income Tax
+	taxableIncome := t.NetIncome - t.CAS.Amount - t.CASS.Amount
+	if taxableIncome < 0 {
+		taxableIncome = 0
+	}
+	itContent := fmt.Sprintf(
+		"%s %s (Net Income - CAS - CASS)\n%s %s",
+		SummaryLabelStyle.Render("Taxable Income:"),
+		SummaryValueStyle.Render(taxes.FormatRON(taxableIncome)),
+		SummaryLabelStyle.Render("Amount:"),
+		SummaryValueStyle.Render(taxes.FormatRON(t.IncomeTax)),
+	)
+	b.WriteString(SummaryLabelStyle.Render(fmt.Sprintf("Income Tax (%.0f%%)", m.taxConfig.IncomeTaxPercent)))
+	b.WriteString("\n")
+	b.WriteString(CompactBoxStyle.Render(itContent))
+	b.WriteString("\n")
+
+	// Totals
+	totalsContent := fmt.Sprintf(
+		"%s %s\n%s %s\n%s %.1f%%",
+		SummaryLabelStyle.Render("Total Taxes:"),
+		ErrorStyle.Render(taxes.FormatRON(t.TotalTaxes)),
+		SummaryLabelStyle.Render("Net After Tax:"),
+		PaidStyle.Render(taxes.FormatRON(t.NetAfterTax)),
+		SummaryLabelStyle.Render("Effective Tax Rate:"),
+		t.EffectiveRate,
+	)
+	b.WriteString(CompactBoxStyle.Render(totalsContent))
 
 	return b.String()
 }

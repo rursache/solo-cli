@@ -1,6 +1,6 @@
 ---
 name: solo-cli
-description: Monitor and interact with SOLO.ro accounting platform via CLI or TUI (summary, revenues, expenses, queue, e-factura, company). Use when a user asks to check their accounting data, view invoices, expenses, or e-factura documents, or translate a task into safe solo-cli commands.
+description: Monitor and interact with SOLO.ro accounting platform via CLI or TUI (summary, revenues, expenses, queue, e-factura, company, taxes). Use when a user asks to check their accounting data, view invoices, expenses, e-factura documents, tax breakdown, or translate a task into safe solo-cli commands.
 ---
 
 # SOLO CLI
@@ -16,6 +16,7 @@ brew install rursache/tap/solo-cli
 
 ## Defaults and safety
 - Config file location: `~/.config/solo-cli/config.json` (created on first run)
+- Tax config location: `~/.config/solo-cli/taxes.json` (created on first use with 2026 defaults)
 - Use `--config` or `-c` to specify a custom config path
 - Credentials are stored locally; never passed as command arguments
 - Session cookies are cached to `~/.config/solo-cli/cookies.json` for faster subsequent logins
@@ -29,6 +30,8 @@ brew install rursache/tap/solo-cli
 - Queue: `solo-cli queue`
 - E-Factura: `solo-cli efactura`
 - Company: `solo-cli company`
+- Taxes: `solo-cli taxes`
+- Taxes for year: `solo-cli taxes 2025`
 - Upload: `solo-cli upload file.pdf`
 - Delete: `solo-cli queue delete <ID>`
 - TUI: `solo-cli` (no command)
@@ -112,6 +115,16 @@ solo-cli upload invoice.pdf
 solo-cli up invoice.pdf   # Alias
 ```
 Output: Upload status and confirmation.
+
+### taxes [year]
+Show tax breakdown with CAS, CASS, income tax calculations and buffer to next threshold.
+```bash
+solo-cli taxes            # Current year
+solo-cli taxes 2025       # Specific year
+solo-cli tax              # Alias
+```
+Output: Net income, CAS/CASS/income tax amounts, buffer to next threshold, totals, effective rate.
+Uses configurable thresholds from `~/.config/solo-cli/taxes.json`.
 
 ### demo
 Start TUI with mock data for screenshots or testing (no API calls).
