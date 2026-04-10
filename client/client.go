@@ -19,6 +19,7 @@ const (
 type Client struct {
 	httpClient *http.Client
 	userAgent  string
+	CompanyID  string
 }
 
 // loginRequest represents the login request body

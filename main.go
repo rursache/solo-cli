@@ -116,15 +116,13 @@ Examples:
 `)
 }
 
-// withClient handles auth and runs a command with a client
-func withClient(fn func(*client.Client)) {
-	// Ensure config file exists
+// setupClient creates an authenticated API client and ensures company ID is discovered
+func setupClient() (*client.Client, *config.Config) {
 	if err := config.EnsureExists(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error creating config file: %v\n", err)
 		os.Exit(1)
 	}
 
-	// Load config
 	cfg, err := config.Load()
 	if err != nil {
 		if errors.Is(err, config.ErrCredentialsMissing) {
@@ -137,7 +135,6 @@ func withClient(fn func(*client.Client)) {
 		os.Exit(1)
 	}
 
-	// Create API client with user agent from config
 	userAgent := cfg.UserAgent
 	if userAgent == "" {
 		userAgent = config.DefaultUserAgent
@@ -148,7 +145,6 @@ func withClient(fn func(*client.Client)) {
 		os.Exit(1)
 	}
 
-	// Try to load saved cookies first
 	needsLogin := true
 	if loaded, _ := apiClient.LoadCookies(); loaded {
 		if _, err := apiClient.GetSummary(); err == nil {
@@ -156,7 +152,6 @@ func withClient(fn func(*client.Client)) {
 		}
 	}
 
-	// Login if cookies are missing, expired, or invalid
 	if needsLogin {
 		fmt.Fprintln(os.Stderr, "Logging in to SOLO.ro...")
 		if err := apiClient.Login(cfg.Username, cfg.Password); err != nil {
@@ -173,117 +168,30 @@ func withClient(fn func(*client.Client)) {
 		}
 	}
 
+	// Auto-discover company ID
+	if id, err := apiClient.DiscoverCompanyID(); err == nil {
+		apiClient.CompanyID = id
+	}
+
+	return apiClient, cfg
+}
+
+// withClient handles auth and runs a command with a client
+func withClient(fn func(*client.Client)) {
+	apiClient, _ := setupClient()
 	fn(apiClient)
 }
 
 // withClientArgs handles auth and runs a command with client and args
 func withClientArgs(fn func(*client.Client, []string), args []string) {
-	if err := config.EnsureExists(); err != nil {
-		fmt.Fprintf(os.Stderr, "Error creating config file: %v\n", err)
-		os.Exit(1)
-	}
-
-	cfg, err := config.Load()
-	if err != nil {
-		if errors.Is(err, config.ErrCredentialsMissing) {
-			configPath, _ := config.GetConfigPath()
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			fmt.Fprintf(os.Stderr, "Please edit: %s\n", configPath)
-			os.Exit(1)
-		}
-		fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
-		os.Exit(1)
-	}
-
-	userAgent := cfg.UserAgent
-	if userAgent == "" {
-		userAgent = config.DefaultUserAgent
-	}
-	apiClient, err := client.New(userAgent)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error creating client: %v\n", err)
-		os.Exit(1)
-	}
-
-	needsLogin := true
-	if loaded, _ := apiClient.LoadCookies(); loaded {
-		if _, err := apiClient.GetSummary(); err == nil {
-			needsLogin = false
-		}
-	}
-
-	if needsLogin {
-		fmt.Fprintln(os.Stderr, "Logging in to SOLO.ro...")
-		if err := apiClient.Login(cfg.Username, cfg.Password); err != nil {
-			if errors.Is(err, client.ErrAuthenticationFailed) {
-				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-				fmt.Fprintln(os.Stderr, "Please check your credentials in the config file.")
-				os.Exit(1)
-			}
-			fmt.Fprintf(os.Stderr, "Login error: %v\n", err)
-			os.Exit(1)
-		}
-		if err := apiClient.SaveCookies(); err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: could not save session: %v\n", err)
-		}
-	}
-
+	apiClient, _ := setupClient()
 	fn(apiClient, args)
 }
 
 func runTUI() {
-	// Ensure config file exists
-	if err := config.EnsureExists(); err != nil {
-		fmt.Fprintf(os.Stderr, "Error creating config file: %v\n", err)
-		os.Exit(1)
-	}
+	apiClient, cfg := setupClient()
 
-	cfg, err := config.Load()
-	if err != nil {
-		if errors.Is(err, config.ErrCredentialsMissing) {
-			configPath, _ := config.GetConfigPath()
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			fmt.Fprintf(os.Stderr, "Please edit: %s\n", configPath)
-			os.Exit(1)
-		}
-		fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
-		os.Exit(1)
-	}
-
-	userAgent := cfg.UserAgent
-	if userAgent == "" {
-		userAgent = config.DefaultUserAgent
-	}
-	apiClient, err := client.New(userAgent)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error creating client: %v\n", err)
-		os.Exit(1)
-	}
-
-	needsLogin := true
-	if loaded, _ := apiClient.LoadCookies(); loaded {
-		if _, err := apiClient.GetSummary(); err == nil {
-			needsLogin = false
-		}
-	}
-
-	if needsLogin {
-		fmt.Fprintln(os.Stderr, "Logging in to SOLO.ro...")
-		if err := apiClient.Login(cfg.Username, cfg.Password); err != nil {
-			if errors.Is(err, client.ErrAuthenticationFailed) {
-				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-				fmt.Fprintln(os.Stderr, "Please check your credentials in the config file.")
-				os.Exit(1)
-			}
-			fmt.Fprintf(os.Stderr, "Login error: %v\n", err)
-			os.Exit(1)
-		}
-		if err := apiClient.SaveCookies(); err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: could not save session: %v\n", err)
-		}
-	}
-
-	model := tui.NewModel(apiClient, cfg.CompanyID, cfg.PageSize)
+	model := tui.NewModel(apiClient, cfg.PageSize)
 	p := tea.NewProgram(model, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error running TUI: %v\n", err)
@@ -412,13 +320,11 @@ func runEFactura(c *client.Client) {
 }
 
 func runCompany(c *client.Client) {
-	cfg, _ := config.Load()
-	if cfg.CompanyID == "" {
-		fmt.Fprintln(os.Stderr, "Error: company_id not configured")
-		fmt.Fprintln(os.Stderr, "Add 'company_id' to ~/.config/solo-cli/config.json")
+	if c.CompanyID == "" {
+		fmt.Fprintln(os.Stderr, "Error: could not determine company ID")
 		os.Exit(1)
 	}
-	company, err := c.GetCompanyInfo(cfg.CompanyID)
+	company, err := c.GetCompanyInfo(c.CompanyID)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)

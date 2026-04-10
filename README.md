@@ -53,7 +53,6 @@ On first run, the CLI creates a config at `~/.config/solo-cli/config.json`:
 {
   "username": "your_email@example.com",
   "password": "your_password",
-  "company_id": "your_company_id",
   "page_size": 100,
   "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36..."
 }
@@ -63,7 +62,6 @@ On first run, the CLI creates a config at `~/.config/solo-cli/config.json`:
 |-------|----------|-------------|
 | username | Yes | SOLO.ro login email |
 | password | Yes | SOLO.ro password |
-| company_id | No | Company ID for profile display |
 | page_size | No | Number of items to fetch (default: 100) |
 | user_agent | No | Custom HTTP user agent string |
 
@@ -96,15 +94,6 @@ On first run of the `taxes` command (or TUI Taxes tab), the CLI creates `~/.conf
 - `base_salaries`: what to multiply by the percentage — positive = fixed multiple of SMB, `0` = exempt, `-1` = proportional (use actual net income)
 
 Update `salariu_minim_brut` when it changes, and adjust thresholds as tax law evolves.
-
-### Finding Your Company ID
-
-1. Log in to [SOLO.ro](https://falcon.solo.ro)
-2. Go to **Settings → Company**: https://falcon.solo.ro/settings#!/company
-3. Open browser DevTools (F12) → **Network** tab
-4. Type `company_` in the filter box
-5. Look for a request like `company_0e5f5310aec44ea7ba27025d2fd7551c`
-6. Copy the ID part (the 32 characters after `company_`)
 
 ## Usage
 

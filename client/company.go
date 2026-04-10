@@ -27,7 +27,7 @@ type CompanyInfoResponse struct {
 // GetCompanyInfo fetches company profile by ID
 func (c *Client) GetCompanyInfo(companyID string) (*CompanyInfo, error) {
 	if companyID == "" {
-		return nil, fmt.Errorf("company_id not configured")
+		return nil, fmt.Errorf("company ID not available")
 	}
 
 	url := fmt.Sprintf("%s/proxy/accounting/company/basic-profile/company_%s", baseURL, companyID)

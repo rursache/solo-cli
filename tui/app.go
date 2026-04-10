@@ -61,7 +61,6 @@ type Model struct {
 	rejected     *client.RejectedExpenseResponse
 	queue        *client.QueuedExpenseResponse
 	efactura     *client.EFacturaListResponse
-	companyID    string
 	taxBreakdown *taxes.TaxBreakdown
 	taxConfig    *config.TaxConfig
 
@@ -95,7 +94,7 @@ type errMsg error
 type deleteSuccessMsg struct{}
 
 // NewModel creates a new TUI model
-func NewModel(c *client.Client, companyID string, pageSize int) Model {
+func NewModel(c *client.Client, pageSize int) Model {
 	s := spinner.New()
 	s.Spinner = spinner.Dot
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("#7C3AED"))
@@ -114,8 +113,7 @@ func NewModel(c *client.Client, companyID string, pageSize int) Model {
 		loading:      true,
 		pageSize:     pageSize,
 		viewportSize: 10, // Show 10 at a time (keeps header visible)
-		companyID:    companyID,
-		taxConfig:    taxCfg,
+		taxConfig: taxCfg,
 	}
 }
 
@@ -425,13 +423,13 @@ func (m Model) renderDashboard() string {
 		b.WriteString("\n")
 		b.WriteString(SummaryLabelStyle.Render(fmt.Sprintf("CUI: %s • Reg: %s", m.company.Code1, m.company.Code2)))
 		b.WriteString("\n\n")
-	} else if m.companyID == "" {
-		b.WriteString(ErrorStyle.Render("‼️  company_id not configured in ~/.config/solo-cli/config.json"))
+	} else if m.client.CompanyID == "" {
+		b.WriteString(ErrorStyle.Render("‼️  Could not determine company ID"))
 		b.WriteString("\n")
 		b.WriteString(SummaryLabelStyle.Render("Visit https://falcon.solo.ro/settings#!/company and check Network tab for company_ID"))
 		b.WriteString("\n\n")
 	} else {
-		b.WriteString(ErrorStyle.Render("‼️  Could not load company info (invalid company_id?)"))
+		b.WriteString(ErrorStyle.Render("‼️  Could not load company info"))
 		b.WriteString("\n\n")
 	}
 
@@ -627,10 +625,10 @@ func (m Model) fetchSummary() tea.Msg {
 }
 
 func (m Model) fetchCompany() tea.Msg {
-	if m.companyID == "" {
+	if m.client.CompanyID == "" {
 		return companyMsg(nil)
 	}
-	company, err := m.client.GetCompanyInfo(m.companyID)
+	company, err := m.client.GetCompanyInfo(m.client.CompanyID)
 	if err != nil {
 		// Company info is optional, don't fail
 		return companyMsg(nil)

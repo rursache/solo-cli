@@ -31,6 +31,7 @@ solo-cli/
     expenses.go        - Expense/Queue/Rejected types, list/delete operations
     efactura.go        - e-Factura types and ListEFactura()
     company.go         - CompanyInfo type and GetCompanyInfo()
+    company_discover.go - Auto-discovery of company ID from authenticated HTML
     upload.go          - Two-step document upload (multipart upload + confirm)
     demo.go            - Mock data generators for demo/screenshot mode
   tui/
@@ -174,7 +175,6 @@ Override with `--config` or `-c` flag.
 {
   "username": "your_email@example.com",
   "password": "your_password",
-  "company_id": "32-character-hex-id",
   "page_size": 100,
   "user_agent": "Mozilla/5.0 ..."
 }
@@ -182,7 +182,7 @@ Override with `--config` or `-c` flag.
 
 - `username` (required): SOLO.ro login email
 - `password` (required): SOLO.ro password
-- `company_id` (optional): 32-character hex ID for company profile display. Found in the SOLO.ro Network tab at `/settings#!/company` -- look for requests to `company_XXXXXXXX`.
+- Company ID is auto-discovered at runtime from the authenticated session (no config needed).
 - `page_size` (optional, default 100): Number of items to fetch per API call
 - `user_agent` (optional): Custom HTTP User-Agent header
 

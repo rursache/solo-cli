@@ -43,7 +43,6 @@ Config file structure:
 {
   "username": "your_email@solo.ro",
   "password": "your_password",
-  "company_id": "12345",
   "page_size": 100,
   "user_agent": "Mozilla/5.0 ..."
 }
@@ -53,7 +52,6 @@ Config file structure:
 |-------|----------|-------------|
 | username | Yes | SOLO.ro login email |
 | password | Yes | SOLO.ro password |
-| company_id | No | Company ID for profile display (find in Network tab on /settings#!/company) |
 | page_size | No | Number of items to fetch (default: 100) |
 | user_agent | No | Custom HTTP user agent string |
 
@@ -180,4 +178,4 @@ solo-cli queue delete 123456
 - **"credentials missing"**: Edit config.json with your SOLO.ro username/password
 - **"authentication failed"**: Check credentials are correct
 - **"invalid JSON in config"**: Fix syntax errors in config.json
-- **Company info not showing**: Add company_id to config (optional field)
+- **Company info not showing**: Company ID is auto-discovered; try logging in again

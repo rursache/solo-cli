@@ -20,7 +20,6 @@ const DefaultUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/
 type Config struct {
 	Username  string `json:"username"`
 	Password  string `json:"password"`
-	CompanyID string `json:"company_id"`
 	PageSize  int    `json:"page_size"`
 	UserAgent string `json:"user_agent"`
 }
@@ -80,7 +79,6 @@ func EnsureExists() error {
 		emptyConfig := Config{
 			Username:  "",
 			Password:  "",
-			CompanyID: "",
 			PageSize:  100,
 			UserAgent: DefaultUserAgent,
 		}
