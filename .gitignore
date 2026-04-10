@@ -2,6 +2,7 @@ docs/re/
 
 # Binaries
 solo-cli
+solo-cli-*
 *.exe
 *.dll
 *.so
