@@ -1,3 +1,9 @@
+## [1.5.0]
+
+### Added
+- **Auto-discover Company ID**: Company ID is now automatically obtained from the authenticated session — no more manual setup via browser DevTools
+- Removed `company_id` from config file (existing field is silently ignored for upgrading users)
+
 ## [1.4.0]
 
 ### Added
