@@ -165,3 +165,7 @@ This entire codebase was created using [Claude Opus 4.5](https://www.anthropic.c
 ## License
 
 MIT License - see [LICENSE](LICENSE) for details
+
+## Download History
+
+[![Download History](https://skill-history.com/chart/rursache/solo-cli.svg)](https://skill-history.com/rursache/solo-cli)
