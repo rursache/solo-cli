@@ -9,12 +9,14 @@ import (
 
 // ThresholdResult describes the tax computed for a specific contribution
 type ThresholdResult struct {
-	Label        string
-	Percentage   float64
-	Base         float64
-	Amount       float64
-	NextLabel    string  // label of the next threshold (empty if at max)
-	BufferToNext float64 // how much more net income before reaching the next threshold
+	Label          string
+	Percentage     float64
+	Base           float64
+	Amount         float64
+	NextLabel      string  // label of the next threshold (empty if at max)
+	BufferToNext   float64 // how much more net income before reaching the next threshold
+	PrevLabel      string  // label of the previous (lower) bracket (empty if already at lowest)
+	ExpensesToPrev float64 // extra deductible expenses needed to drop into the previous bracket
 }
 
 // TaxBreakdown holds the full tax calculation result
@@ -111,6 +113,35 @@ func calculateContribution(netIncome, salaries, smb, percent float64, thresholds
 				}
 			}
 
+			// Expenses needed to drop back into the previous bracket — only
+			// surface the hint when the contribution saving actually beats the
+			// required expense. Otherwise the suggestion is bad advice.
+			if i > 0 {
+				prev := thresholds[i-1]
+				currentMinIncome := t.MinSalaries * smb
+				expensesNeeded := math.Round((netIncome-currentMinIncome)*100)/100 + 1
+				if expensesNeeded < 0 {
+					expensesNeeded = 0
+				}
+
+				// Hypothetical income just below current bracket's lower bound
+				hypoIncome := currentMinIncome - 1
+				var prevAmount float64
+				switch {
+				case prev.BaseSalaries == 0:
+					prevAmount = 0
+				case prev.BaseSalaries == -1:
+					prevAmount = math.Round(hypoIncome*percent) / 100
+				default:
+					prevAmount = math.Round(prev.BaseSalaries*smb*percent) / 100
+				}
+
+				if result.Amount-prevAmount > expensesNeeded {
+					result.PrevLabel = prev.Label
+					result.ExpensesToPrev = expensesNeeded
+				}
+			}
+
 			return result
 		}
 	}
@@ -139,4 +170,9 @@ func FormatBuffer(buffer float64) string {
 		return "plafonul a fost atins"
 	}
 	return fmt.Sprintf("%.2f RON rămas până la următorul plafon", buffer)
+}
+
+// FormatExpensesHint returns a human-readable hint for dropping a bracket
+func FormatExpensesHint(amount float64) string {
+	return fmt.Sprintf("Surplus: %s (adaugă cheltuieli pentru a coborî sub plafon)", FormatRON(amount))
 }

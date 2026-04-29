@@ -369,16 +369,12 @@ func runTaxes(c *client.Client, args []string) {
 
 	fmt.Printf("CAS (%.0f%%): %s\n", result.CAS.Percentage, result.CAS.Label)
 	fmt.Printf("  Base: %s → Amount: %s\n", taxes.FormatRON(result.CAS.Base), taxes.FormatRON(result.CAS.Amount))
-	if result.CAS.NextLabel != "" {
-		fmt.Printf("  Buffer: %s (%s)\n", taxes.FormatBuffer(result.CAS.BufferToNext), result.CAS.NextLabel)
-	}
+	printThresholdHint(result.CAS)
 	fmt.Println()
 
 	fmt.Printf("CASS (%.0f%%): %s\n", result.CASS.Percentage, result.CASS.Label)
 	fmt.Printf("  Base: %s → Amount: %s\n", taxes.FormatRON(result.CASS.Base), taxes.FormatRON(result.CASS.Amount))
-	if result.CASS.NextLabel != "" {
-		fmt.Printf("  Buffer: %s (%s)\n", taxes.FormatBuffer(result.CASS.BufferToNext), result.CASS.NextLabel)
-	}
+	printThresholdHint(result.CASS)
 	fmt.Println()
 
 	fmt.Printf("Income Tax (%.0f%%): %s\n", taxCfg.IncomeTaxPercent, taxes.FormatRON(result.IncomeTax))
@@ -389,6 +385,16 @@ func runTaxes(c *client.Client, args []string) {
 	fmt.Printf("Total Taxes:          %s\n", taxes.FormatRON(result.TotalTaxes))
 	fmt.Printf("Net After Tax:        %s\n", taxes.FormatRON(result.NetAfterTax))
 	fmt.Printf("Effective Tax Rate:   %.1f%%\n", result.EffectiveRate)
+}
+
+func printThresholdHint(t taxes.ThresholdResult) {
+	if t.PrevLabel != "" {
+		fmt.Printf("  %s (→ %s)\n", taxes.FormatExpensesHint(t.ExpensesToPrev), t.PrevLabel)
+		return
+	}
+	if t.NextLabel != "" {
+		fmt.Printf("  Buffer: %s (%s)\n", taxes.FormatBuffer(t.BufferToNext), t.NextLabel)
+	}
 }
 
 func runUpload(c *client.Client, args []string) {

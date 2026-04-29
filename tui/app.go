@@ -677,6 +677,39 @@ func truncate(s string, max int) string {
 	return s[:max-3] + "..."
 }
 
+// renderThresholdHint shows a "buffer to next" line if still in the lowest
+// bracket, or an actionable "add expenses to drop a bracket" line once a
+// threshold has been crossed. Returns "" if no hint applies.
+func renderThresholdHint(t taxes.ThresholdResult) string {
+	if t.PrevLabel != "" {
+		hintStyle := dangerStyle
+		if t.ExpensesToPrev < 5000 {
+			hintStyle = secondaryStyle
+		} else if t.ExpensesToPrev < 15000 {
+			hintStyle = warningStyle
+		}
+		return fmt.Sprintf("\n%s %s → %s",
+			SummaryLabelStyle.Render("Surplus:"),
+			hintStyle.Render(taxes.FormatRON(t.ExpensesToPrev)),
+			SummaryLabelStyle.Render(t.PrevLabel),
+		)
+	}
+	if t.NextLabel != "" {
+		bufferStyle := secondaryStyle
+		if t.BufferToNext < 5000 {
+			bufferStyle = dangerStyle
+		} else if t.BufferToNext < 15000 {
+			bufferStyle = warningStyle
+		}
+		return fmt.Sprintf("\n%s %s → %s",
+			SummaryLabelStyle.Render("Buffer:"),
+			bufferStyle.Render(taxes.FormatRON(t.BufferToNext)),
+			SummaryLabelStyle.Render(t.NextLabel),
+		)
+	}
+	return ""
+}
+
 // WarningStyle returns styled warning text
 func WarningStyle() lipgloss.Style {
 	return lipgloss.NewStyle().Foreground(lipgloss.Color("#F59E0B"))
@@ -776,19 +809,7 @@ func (m Model) renderTaxes() string {
 		SummaryLabelStyle.Render("Amount:"),
 		SummaryValueStyle.Render(taxes.FormatRON(t.CAS.Amount)),
 	)
-	if t.CAS.NextLabel != "" {
-		bufferStyle := secondaryStyle
-		if t.CAS.BufferToNext < 5000 {
-			bufferStyle = dangerStyle
-		} else if t.CAS.BufferToNext < 15000 {
-			bufferStyle = warningStyle
-		}
-		casContent += fmt.Sprintf("\n%s %s → %s",
-			SummaryLabelStyle.Render("Buffer:"),
-			bufferStyle.Render(taxes.FormatRON(t.CAS.BufferToNext)),
-			SummaryLabelStyle.Render(t.CAS.NextLabel),
-		)
-	}
+	casContent += renderThresholdHint(t.CAS)
 	b.WriteString(SummaryLabelStyle.Render(fmt.Sprintf("CAS (%.0f%%)", t.CAS.Percentage)))
 	b.WriteString("\n")
 	b.WriteString(CompactBoxStyle.Render(casContent))
@@ -804,19 +825,7 @@ func (m Model) renderTaxes() string {
 		SummaryLabelStyle.Render("Amount:"),
 		SummaryValueStyle.Render(taxes.FormatRON(t.CASS.Amount)),
 	)
-	if t.CASS.NextLabel != "" {
-		bufferStyle := secondaryStyle
-		if t.CASS.BufferToNext < 5000 {
-			bufferStyle = dangerStyle
-		} else if t.CASS.BufferToNext < 15000 {
-			bufferStyle = warningStyle
-		}
-		cassContent += fmt.Sprintf("\n%s %s → %s",
-			SummaryLabelStyle.Render("Buffer:"),
-			bufferStyle.Render(taxes.FormatRON(t.CASS.BufferToNext)),
-			SummaryLabelStyle.Render(t.CASS.NextLabel),
-		)
-	}
+	cassContent += renderThresholdHint(t.CASS)
 	b.WriteString(SummaryLabelStyle.Render(fmt.Sprintf("CASS (%.0f%%)", t.CASS.Percentage)))
 	b.WriteString("\n")
 	b.WriteString(CompactBoxStyle.Render(cassContent))
