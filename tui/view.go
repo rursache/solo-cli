@@ -54,9 +54,9 @@ func (m Model) View() string {
 	case m.activeTab == TabQueue:
 		helpText = "←/→ tabs • ↑/↓ navigate • / search • d delete • r refresh • q quit"
 	case m.activeTab == TabDashboard:
-		helpText = "←/→ tabs • [/] year • r refresh • q quit"
+		helpText = "←/→ tabs • [ and ] switch year • r refresh • q quit"
 	case m.activeTab == TabTaxes:
-		helpText = "←/→ tabs • ↑/↓ scroll • [/] year • r refresh • q quit"
+		helpText = "←/→ tabs • ↑/↓ scroll • [ and ] switch year • r refresh • q quit"
 	}
 	help := HelpStyle.Render(helpText)
 

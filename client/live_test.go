@@ -96,6 +96,24 @@ func TestLiveListEndpoints(t *testing.T) {
 	}
 }
 
+// Years before the account existed return clean zeros (Year echoed back,
+// totals 0, HasTaxes false), not errors. The TUI year switcher relies on
+// this: selecting a no-data year shows zeros instead of breaking
+func TestLiveYearWithoutData(t *testing.T) {
+	c := liveClient(t)
+
+	s, err := c.GetSummaryForYear(2020)
+	if err != nil {
+		t.Fatalf("no-data year must not error: %v", err)
+	}
+	if s.Year != 2020 {
+		t.Errorf("Year = %d, want 2020 echoed back", s.Year)
+	}
+	if s.TotalRevenues != 0 || s.TotalDeductibleExpenses != 0 || s.HasTaxes {
+		t.Errorf("no-data year not zeroed: %+v", s)
+	}
+}
+
 // The server must actually honor SearchText, otherwise the TUI search
 // would silently show unfiltered results
 func TestLiveSearchFilters(t *testing.T) {

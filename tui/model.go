@@ -140,6 +140,8 @@ func NewDemoModel() Model {
 		pageSize:     100,
 		viewportSize: 10,
 		demoMode:     true,
+		year:         demoSummary.Year,
+		maxYear:      demoSummary.Year,
 		taxConfig:    taxCfg,
 		taxBreakdown: taxBreakdown,
 		// Pre-populate with demo data

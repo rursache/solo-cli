@@ -38,9 +38,9 @@ func (m Model) renderDashboard() string {
 
 	// Summary box
 	summaryContent := fmt.Sprintf(
-		"%s %d\n%s %.2f %s\n%s %.2f %s\n%s %.2f %s",
+		"%s %s\n%s %.2f %s\n%s %.2f %s\n%s %.2f %s",
 		SummaryLabelStyle.Render("Year:"),
-		m.summary.Year,
+		m.renderYearRow(),
 		SummaryLabelStyle.Render("Total Revenues:"),
 		m.summary.TotalRevenues,
 		m.summary.DisplayCurrency,
@@ -69,6 +69,28 @@ func (m Model) renderDashboard() string {
 	}
 
 	return b.String()
+}
+
+// yearOptions is how many years the dashboard offers, newest first
+const yearOptions = 4
+
+// renderYearRow shows the selectable years with the displayed one
+// highlighted. The years are clickable (see clickYear in mouse.go)
+func (m Model) renderYearRow() string {
+	if m.maxYear == 0 {
+		return SummaryValueStyle.Render(fmt.Sprintf("%d", m.summary.Year))
+	}
+
+	var parts []string
+	for y := m.maxYear; y > m.maxYear-yearOptions; y-- {
+		s := fmt.Sprintf("%d", y)
+		if y == m.summary.Year {
+			parts = append(parts, SummaryValueStyle.Render(s))
+		} else {
+			parts = append(parts, SummaryLabelStyle.Render(s))
+		}
+	}
+	return strings.Join(parts, SummaryLabelStyle.Render(" • "))
 }
 
 // renderCAENLines shows the principal CAEN code with its full name and the

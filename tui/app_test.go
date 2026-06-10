@@ -195,6 +195,101 @@ func TestYearSwitcher(t *testing.T) {
 	}
 }
 
+// Clicking a year in the dashboard summary box switches to it
+func TestClickableYears(t *testing.T) {
+	m := NewDemoModel()
+	m.demoMode = false
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	m = updated.(Model)
+	m.activeTab = TabDashboard
+	m.year, m.maxYear = 2026, 2026
+	m.summary.Year = 2026
+
+	// The year row must offer the current and previous years
+	view := m.View()
+	for _, yr := range []string{"2026", "2025", "2024", "2023"} {
+		if !strings.Contains(view, yr) {
+			t.Fatalf("year row missing %s", yr)
+		}
+	}
+
+	// Locate 2024 in the rendered view the same way clickYear does
+	lines := strings.Split(view, "\n")
+	clickX, clickY := -1, -1
+	for i, line := range lines {
+		plain := stripANSI(line)
+		if strings.Contains(plain, "Year:") {
+			idx := strings.Index(plain, "2024")
+			clickX = len([]rune(plain[:idx])) + 1
+			clickY = i
+			break
+		}
+	}
+	if clickY == -1 {
+		t.Fatal("year row not found in view")
+	}
+
+	updated, cmd := m.Update(tea.MouseMsg{X: clickX, Y: clickY, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress})
+	m = updated.(Model)
+	if m.year != 2024 {
+		t.Fatalf("year after click = %d, want 2024", m.year)
+	}
+	if cmd == nil {
+		t.Fatal("year click must refetch the summary")
+	}
+
+	// Clicking the already selected year does nothing
+	m.summary.Year = 2024
+	updated, cmd = m.Update(tea.MouseMsg{X: clickX, Y: clickY, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress})
+	m = updated.(Model)
+	if m.year != 2024 || cmd != nil {
+		t.Error("clicking the selected year must be a no-op")
+	}
+}
+
+// The complete [ key flow: first summary establishes the year, the key
+// switches it and the refetched summary lands
+func TestYearSwitcherFullFlow(t *testing.T) {
+	m := NewDemoModel()
+	m.demoMode = false
+	m.activeTab = TabDashboard
+	m.year, m.maxYear = 0, 0
+
+	updated, _ := m.Update(summaryMsg(&client.Summary{Year: 2026, TotalRevenues: 1000}))
+	m = updated.(Model)
+
+	updated, cmd := m.Update(keyMsg("["))
+	m = updated.(Model)
+	if m.year != 2025 || cmd == nil {
+		t.Fatalf("[ after first summary: year %d, cmd %v", m.year, cmd)
+	}
+
+	// The refetched summary for a year without data renders zeros
+	updated, _ = m.Update(summaryMsg(&client.Summary{Year: 2025}))
+	m = updated.(Model)
+	updated, _ = m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	m = updated.(Model)
+	if view := m.View(); !strings.Contains(view, "0.00") {
+		t.Error("no-data year must render zero totals")
+	}
+}
+
+func stripANSI(s string) string {
+	var out []rune
+	inEscape := false
+	for _, r := range s {
+		switch {
+		case r == '\x1b':
+			inEscape = true
+		case inEscape && (r == 'm'):
+			inEscape = false
+		case !inEscape:
+			out = append(out, r)
+		}
+	}
+	return string(out)
+}
+
 // The first summary establishes maxYear and later summaries track the year
 func TestSummarySetsYearBounds(t *testing.T) {
 	m := NewDemoModel()
