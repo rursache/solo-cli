@@ -115,6 +115,31 @@ func (m Model) tabViewportSize() int {
 	return size
 }
 
+// renderList renders the standard list tab layout: scroll position line,
+// table header and the visible rows with the cursor row highlighted
+func (m Model) renderList(total int, header string, row func(i int) string) string {
+	var b strings.Builder
+	size := m.tabViewportSize()
+
+	b.WriteString(SummaryLabelStyle.Render(fmt.Sprintf("Showing %d-%d of %d", m.viewportOffset+1, min(m.viewportOffset+size, total), total)))
+	b.WriteString("\n\n")
+
+	b.WriteString(TableHeaderStyle.Render(header))
+	b.WriteString("\n")
+
+	endIdx := min(m.viewportOffset+size, total)
+	for i := m.viewportOffset; i < endIdx; i++ {
+		if i == m.cursor {
+			b.WriteString(TableSelectedStyle.Render(row(i)))
+		} else {
+			b.WriteString(TableRowStyle.Render(row(i)))
+		}
+		b.WriteString("\n")
+	}
+
+	return b.String()
+}
+
 // bodyHeight returns the rows available for tab content between the
 // title/tab chrome (5 lines) and the pinned help footer (2 lines, after
 // one padding row). Every tab derives its viewport from this so resize

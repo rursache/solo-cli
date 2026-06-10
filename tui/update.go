@@ -15,8 +15,12 @@ func (m Model) Init() tea.Cmd {
 	if m.demoMode {
 		return m.spinner.Tick
 	}
+	return tea.Batch(m.spinner.Tick, m.fetchAll())
+}
+
+// fetchAll loads every tab's data concurrently
+func (m Model) fetchAll() tea.Cmd {
 	return tea.Batch(
-		m.spinner.Tick,
 		m.fetchSummary,
 		m.fetchCompany,
 		m.fetchRevenues,
@@ -84,15 +88,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "r":
 			// Refresh
 			m.loading = true
-			return m, tea.Batch(
-				m.fetchSummary,
-				m.fetchCompany,
-				m.fetchRevenues,
-				m.fetchExpenses,
-				m.fetchRejected,
-				m.fetchQueue,
-				m.fetchEFactura,
-			)
+			return m, m.fetchAll()
 		}
 
 	case tea.WindowSizeMsg:

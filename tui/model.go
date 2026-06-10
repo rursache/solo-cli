@@ -89,12 +89,15 @@ type efacturaMsg *client.EFacturaListResponse
 type errMsg error
 type deleteSuccessMsg struct{}
 
-// NewModel creates a new TUI model
-func NewModel(c *client.Client, pageSize int) Model {
+func newSpinner() spinner.Model {
 	s := spinner.New()
 	s.Spinner = spinner.Dot
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("#7C3AED"))
+	return s
+}
 
+// NewModel creates a new TUI model
+func NewModel(c *client.Client, pageSize int) Model {
 	if pageSize <= 0 {
 		pageSize = 100 // Default
 	}
@@ -105,7 +108,7 @@ func NewModel(c *client.Client, pageSize int) Model {
 	return Model{
 		client:       c,
 		activeTab:    TabDashboard,
-		spinner:      s,
+		spinner:      newSpinner(),
 		loading:      true,
 		pageSize:     pageSize,
 		viewportSize: 10, // Fallback until the first WindowSizeMsg arrives
@@ -115,17 +118,13 @@ func NewModel(c *client.Client, pageSize int) Model {
 
 // NewDemoModel creates a TUI model with demo data for screenshots
 func NewDemoModel() Model {
-	s := spinner.New()
-	s.Spinner = spinner.Dot
-	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("#7C3AED"))
-
 	demoSummary := client.GetDemoSummary()
 	taxCfg := config.DefaultTaxConfig()
 	taxBreakdown := taxes.Calculate(demoSummary.TotalRevenues, demoSummary.TotalDeductibleExpenses, taxCfg)
 
 	return Model{
 		activeTab:    TabDashboard,
-		spinner:      s,
+		spinner:      newSpinner(),
 		loading:      false, // Data already loaded
 		pageSize:     100,
 		viewportSize: 10,
