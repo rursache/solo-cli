@@ -1,5 +1,8 @@
 ## [Unreleased]
 
+### Added
+- **TUI marquee for long text**: when the focused row has text too long for its column (category, supplier, client, document, party), it scrolls in place like a label marquee. Unfocused rows keep the static `...` truncation
+
 ### Changed
 - **TUI help bar is pinned to the bottom**: the keyboard controls now always render on the last terminal row on every tab instead of floating directly under the content
 - **TUI lists use the full terminal height**: the number of visible rows now adapts to the terminal size (and live resizes) instead of being fixed at 10. The Expenses tab accounts for the rejected documents warning block

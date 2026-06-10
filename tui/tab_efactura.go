@@ -16,12 +16,13 @@ func (m Model) renderEFactura() string {
 
 	return m.renderList(len(m.efactura.Items), header, func(i int) string {
 		e := m.efactura.Items[i]
+		focused := i == m.cursor
 		return fmt.Sprintf("%-20s %12.2f %-4s %-12s %s",
-			truncate(e.SerialCode, 20),
+			m.cell(e.SerialCode, 20, focused),
 			e.TotalAmount,
 			strings.ToUpper(e.CurrencyCode),
 			e.InvoiceDate,
-			padTruncate(e.PartyName, partyWidth),
+			m.cell(e.PartyName, partyWidth, focused),
 		)
 	})
 }

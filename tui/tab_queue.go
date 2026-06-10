@@ -21,7 +21,7 @@ func (m Model) renderQueue() string {
 		return fmt.Sprintf("%5d %-8s %s",
 			q.DaysPassed,
 			status,
-			padTruncate(q.DocumentName, documentWidth),
+			m.cell(q.DocumentName, documentWidth, i == m.cursor),
 		)
 	})
 }

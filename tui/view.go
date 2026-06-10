@@ -102,6 +102,38 @@ func padTruncate(s string, width int) string {
 	return s + strings.Repeat(" ", width-len(r))
 }
 
+// marqueeHoldTicks keeps the marquee still briefly before it starts sliding
+const marqueeHoldTicks = 4
+
+// marquee returns a width-sized window into s that slides with offset,
+// wrapping around with a gap. Strings that fit are just padded
+func marquee(s string, width, offset int) string {
+	r := []rune(s)
+	if len(r) <= width {
+		return padTruncate(s, width)
+	}
+	offset -= marqueeHoldTicks
+	if offset < 0 {
+		offset = 0
+	}
+	r = append(r, []rune("   ")...) // gap between wrap-arounds
+	start := offset % len(r)
+	out := make([]rune, 0, width)
+	for i := 0; i < width; i++ {
+		out = append(out, r[(start+i)%len(r)])
+	}
+	return string(out)
+}
+
+// cell renders a table cell: the focused row scrolls overflowing text in
+// place, other rows show the static truncated version
+func (m Model) cell(s string, width int, focused bool) string {
+	if focused {
+		return marquee(s, width, m.marqueeOffset)
+	}
+	return padTruncate(s, width)
+}
+
 // tabViewportSize returns the visible row count for the active tab. The
 // Expenses tab loses rows to the rejected warning block when present
 func (m Model) tabViewportSize() int {

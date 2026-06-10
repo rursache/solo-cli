@@ -139,6 +139,36 @@ func TestTaxesViewportUsesFullHeight(t *testing.T) {
 	}
 }
 
+func TestMarquee(t *testing.T) {
+	// Fits: plain padding, no animation regardless of offset
+	if got := marquee("abc", 5, 99); got != "abc  " {
+		t.Errorf("fitting string = %q, want padded", got)
+	}
+
+	long := "abcdefghij" // 10 runes, window 6, gap 3 -> cycle 13
+	// During the hold the window stays at the start
+	if got := marquee(long, 6, 0); got != "abcdef" {
+		t.Errorf("offset 0 = %q, want %q", got, "abcdef")
+	}
+	if got := marquee(long, 6, marqueeHoldTicks); got != "abcdef" {
+		t.Errorf("offset at hold end = %q, want still %q", got, "abcdef")
+	}
+	// One tick past the hold slides one rune
+	if got := marquee(long, 6, marqueeHoldTicks+1); got != "bcdefg" {
+		t.Errorf("first slide = %q, want %q", got, "bcdefg")
+	}
+	// Window wraps around through the gap back to the start
+	if got := marquee(long, 6, marqueeHoldTicks+13); got != "abcdef" {
+		t.Errorf("full cycle = %q, want %q", got, "abcdef")
+	}
+	// Output width is stable at every offset
+	for off := 0; off < 30; off++ {
+		if w := len([]rune(marquee(long, 6, off))); w != 6 {
+			t.Fatalf("offset %d: width %d, want 6", off, w)
+		}
+	}
+}
+
 func TestPadTruncate(t *testing.T) {
 	if got := padTruncate("abc", 6); got != "abc   " {
 		t.Errorf("pad: %q", got)

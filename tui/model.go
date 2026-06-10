@@ -65,6 +65,7 @@ type Model struct {
 	err            error
 	spinner        spinner.Model
 	cursor         int
+	marqueeOffset  int // Scroll position of the focused row's marquee
 	viewportOffset int // First visible item index
 	viewportSize   int // Number of visible items
 	taxesScroll    int // Scroll offset for taxes tab

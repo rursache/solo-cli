@@ -16,11 +16,12 @@ func (m Model) renderRevenues() string {
 
 	return m.renderList(len(m.revenues.Items), header, func(i int) string {
 		r := m.revenues.Items[i]
+		focused := i == m.cursor
 		return fmt.Sprintf("%-18s %12.2f %-4s %s",
-			truncate(r.SerialCode, 18),
+			m.cell(r.SerialCode, 18, focused),
 			r.Total,
 			strings.ToUpper(r.Currency.ShortName),
-			padTruncate(r.ClientName, clientWidth),
+			m.cell(r.ClientName, clientWidth, focused),
 		)
 	})
 }

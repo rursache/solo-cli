@@ -2,6 +2,7 @@ package tui
 
 import (
 	"strings"
+	"time"
 
 	"solo-cli/taxes"
 
@@ -9,13 +10,20 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+type marqueeTickMsg struct{}
+
+// marqueeTick drives the focused-row text scrolling
+func marqueeTick() tea.Cmd {
+	return tea.Tick(250*time.Millisecond, func(time.Time) tea.Msg { return marqueeTickMsg{} })
+}
+
 // Init implements tea.Model
 func (m Model) Init() tea.Cmd {
 	// Demo mode: data already loaded, just tick the spinner for consistency
 	if m.demoMode {
-		return m.spinner.Tick
+		return tea.Batch(m.spinner.Tick, marqueeTick())
 	}
-	return tea.Batch(m.spinner.Tick, m.fetchAll())
+	return tea.Batch(m.spinner.Tick, marqueeTick(), m.fetchAll())
 }
 
 // fetchAll loads every tab's data concurrently
@@ -41,11 +49,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "tab", "right", "l":
 			m.activeTab = (m.activeTab + 1) % tabCount
 			m.cursor = 0
+			m.marqueeOffset = 0
 			m.viewportOffset = 0
 			m.taxesScroll = 0
 		case "shift+tab", "left", "h":
 			m.activeTab = (m.activeTab - 1 + tabCount) % tabCount
 			m.cursor = 0
+			m.marqueeOffset = 0
 			m.viewportOffset = 0
 			m.taxesScroll = 0
 		case "d", "delete", "backspace":
@@ -60,6 +70,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			} else if m.cursor > 0 {
 				m.cursor--
+				m.marqueeOffset = 0
 				if m.cursor < m.viewportOffset {
 					m.viewportOffset = m.cursor
 				}
@@ -79,6 +90,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				maxCursor := m.getMaxCursor()
 				if m.cursor < maxCursor-1 {
 					m.cursor++
+					m.marqueeOffset = 0
 					size := m.tabViewportSize()
 					if m.cursor >= m.viewportOffset+size {
 						m.viewportOffset = m.cursor - size + 1
@@ -157,6 +169,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.loading = true
 		// Refresh queue after deletion
 		return m, m.fetchQueue
+
+	case marqueeTickMsg:
+		m.marqueeOffset++
+		return m, marqueeTick()
 
 	case spinner.TickMsg:
 		var cmd tea.Cmd

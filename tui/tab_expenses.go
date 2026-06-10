@@ -32,11 +32,12 @@ func (m Model) renderExpenses() string {
 
 	b.WriteString(m.renderList(len(m.expenses.Items), header, func(i int) string {
 		e := m.expenses.Items[i]
+		focused := i == m.cursor
 		return fmt.Sprintf("%-12.2f %-4s %-30s %s",
 			e.Total,
 			strings.ToUpper(e.Currency.ShortName),
-			truncate(e.Category, 30),
-			padTruncate(e.SupplierName, supplierWidth),
+			m.cell(e.Category, 30, focused),
+			m.cell(e.SupplierName, supplierWidth, focused),
 		)
 	}))
 
