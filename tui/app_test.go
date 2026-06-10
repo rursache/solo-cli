@@ -63,7 +63,9 @@ func TestTableRowsFillWidth(t *testing.T) {
 // The list viewport must grow and shrink with the terminal height and the
 // rendered view must never exceed it
 func TestViewportAdaptsToHeight(t *testing.T) {
-	for _, height := range []int{18, 30, 50} {
+	// 24 is the practical minimum: the Dashboard's fixed content (company
+	// header + summary box) needs ~22 rows before padding
+	for _, height := range []int{24, 30, 50} {
 		m := NewDemoModel()
 		updated, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: height})
 		m = updated.(Model)
@@ -76,10 +78,19 @@ func TestViewportAdaptsToHeight(t *testing.T) {
 			t.Errorf("height %d: viewportSize = %d, want %d", height, m.viewportSize, want)
 		}
 
-		for _, tab := range []Tab{TabRevenues, TabExpenses, TabEFactura, TabQueue} {
+		for tab := TabDashboard; tab < tabCount; tab++ {
 			m.activeTab = tab
-			if lines := len(strings.Split(m.View(), "\n")); lines > height {
-				t.Errorf("height %d, tab %s: view has %d lines, must fit %d", height, tab, lines, height)
+			view := m.View()
+			lines := strings.Split(view, "\n")
+			if len(lines) > height {
+				t.Errorf("height %d, tab %s: view has %d lines, must fit %d", height, tab, len(lines), height)
+			}
+			// Help must be pinned to the very last row
+			if last := lines[len(lines)-1]; !strings.Contains(last, "quit") {
+				t.Errorf("height %d, tab %s: last line is not the help bar: %q", height, tab, last)
+			}
+			if len(lines) != height {
+				t.Errorf("height %d, tab %s: view has %d lines, help not pinned to bottom", height, tab, len(lines))
 			}
 		}
 	}

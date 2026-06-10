@@ -46,16 +46,25 @@ func (m Model) View() string {
 		}
 	}
 
-	// Help
-	b.WriteString("\n")
-	b.WriteString("\n")
+	// Help, pinned to the bottom row of the terminal
 	helpText := "←/→ tabs • ↑/↓ navigate • r refresh • q quit"
 	if m.activeTab == TabQueue {
 		helpText = "←/→ tabs • ↑/↓ navigate • d delete • r refresh • q quit"
 	}
-	b.WriteString(HelpStyle.Render(helpText))
+	help := HelpStyle.Render(helpText)
 
-	return b.String()
+	content := b.String()
+	if m.height > 0 {
+		padding := m.height - lipgloss.Height(content) - lipgloss.Height(help) + 1
+		if padding < 1 {
+			padding = 1
+		}
+		content += strings.Repeat("\n", padding)
+	} else {
+		content += "\n\n"
+	}
+
+	return content + help
 }
 
 func (m Model) renderTabs() string {

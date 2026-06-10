@@ -12,8 +12,9 @@ import (
 func (m Model) renderTaxesViewport() string {
 	content := m.renderTaxes()
 	lines := strings.Split(content, "\n")
-	// Available height: total height minus header (title+tabs = ~4 lines) and footer (help = ~3 lines)
-	availHeight := m.height - 7
+	// Available height: terminal minus title/tabs chrome (5), scroll hint (1)
+	// and the pinned help footer (3)
+	availHeight := m.height - 10
 	if availHeight < 5 {
 		availHeight = 5
 	}

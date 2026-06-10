@@ -1,6 +1,7 @@
 ## [Unreleased]
 
 ### Changed
+- **TUI help bar is pinned to the bottom**: the keyboard controls now always render on the last terminal row on every tab instead of floating directly under the content
 - **TUI lists use the full terminal height**: the number of visible rows now adapts to the terminal size (and live resizes) instead of being fixed at 10. The Expenses tab accounts for the rejected documents warning block
 - **TUI tables use the full terminal width**: the last column of every tab (Client, Supplier, Party, Document) now stretches to fill the available space instead of truncating at a fixed width, and the selection highlight spans the full row. Queue tab columns reordered to `Days, Status, Document` so the filename is the one that flexes. Column widths tightened (Curr 5→4, queue Days 8→5) and Category widened (25→30)
 - **TUI Expenses tab**: removed the `Ded` column (every expense that reaches this list is deductible), currency codes are now uppercase to match the other tabs and the amount column is left aligned
