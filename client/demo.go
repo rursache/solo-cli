@@ -27,6 +27,15 @@ func GetDemoCompany() *CompanyInfo {
 	}
 }
 
+// GetDemoCAENCodes returns mock CAEN codes for demo mode
+func GetDemoCAENCodes() []CAENCode {
+	return []CAENCode{
+		{Id: 1, IsPrimary: true, Code: "6201", Name: "Activități de realizare a soft-ului la comandă", Display: "CAEN: 6201"},
+		{Id: 2, IsPrimary: false, Code: "6202", Name: "Activități de consultanță în tehnologia informației", Display: "CAEN: 6202"},
+		{Id: 3, IsPrimary: false, Code: "6311", Name: "Prelucrarea datelor, administrarea paginilor web", Display: "CAEN: 6311"},
+	}
+}
+
 // GetDemoRevenues returns mock revenue data for demo mode
 func GetDemoRevenues() *RevenueListResponse {
 	ronCurrency := Currency{Id: 1, Code: "RON", Name: "Romanian Leu", ShortName: "RON", IsDefault: true}

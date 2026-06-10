@@ -199,6 +199,30 @@ func TestGetCompanyInfo(t *testing.T) {
 	}
 }
 
+func TestGetCAENCodes(t *testing.T) {
+	c := newTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/proxy/accounting/company/caen-codes/company_abc123" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		json.NewEncoder(w).Encode([]CAENCode{
+			{Id: 1, IsPrimary: true, Code: "6201", Name: "Software development"},
+			{Id: 2, IsPrimary: false, Code: "6202", Name: "IT consultancy"},
+		})
+	}))
+
+	codes, err := c.GetCAENCodes("abc123")
+	if err != nil {
+		t.Fatalf("GetCAENCodes: %v", err)
+	}
+	if len(codes) != 2 || !codes[0].IsPrimary || codes[1].Code != "6202" {
+		t.Errorf("CAEN codes not parsed: %+v", codes)
+	}
+
+	if _, err := c.GetCAENCodes(""); err == nil {
+		t.Error("GetCAENCodes with empty ID should fail")
+	}
+}
+
 func TestDiscoverCompanyID(t *testing.T) {
 	const id = "0123456789abcdef0123456789abcdef"
 	c := newTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

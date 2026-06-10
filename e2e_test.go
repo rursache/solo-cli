@@ -98,6 +98,9 @@ func newMockAPI(t *testing.T) *mockAPI {
 	mux.HandleFunc("/proxy/accounting/company/basic-profile/company_"+mockCompanyID, func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, `{"Ok":true,"Data":{"Name":"Test PFA","Code1":"11111111","Code2":"F1/1/2026","Address":"Str. Exemplu 1"}}`)
 	})
+	mux.HandleFunc("/proxy/accounting/company/caen-codes/company_"+mockCompanyID, func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, `[{"Id":1,"IsPrimary":true,"Code":"6201","Name":"Software development"},{"Id":2,"IsPrimary":false,"Code":"6202","Name":"IT consultancy"}]`)
+	})
 	mux.HandleFunc("/api/local-storage/upload/", func(w http.ResponseWriter, r *http.Request) {
 		m.uploadHits.Add(1)
 		json.NewEncoder(w).Encode("receipt.pdf")
@@ -303,6 +306,9 @@ func TestE2EListCommands(t *testing.T) {
 	}
 	if !strings.Contains(out, "Test PFA") || !strings.Contains(out, "11111111") {
 		t.Errorf("company output: %q", out)
+	}
+	if !strings.Contains(out, "CAEN: 6201 - Software development (principal)") || !strings.Contains(out, "CAEN: 6202 - IT consultancy\n") {
+		t.Errorf("company output missing CAEN codes: %q", out)
 	}
 }
 

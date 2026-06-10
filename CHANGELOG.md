@@ -1,5 +1,8 @@
 ## [Unreleased]
 
+### Added
+- **Richer Dashboard**: shows the company address, the CAEN codes (principal with full name, secundare as a code list) and the net income (revenues - expenses) in the summary box. The `company` CLI command also lists the CAEN codes
+
 ### Fixed
 - **Revenue/expense summary client types**: the `/revenues/summary` and `/expenses/summary` API endpoints return document counts, not monetary totals. The client mapped a nonexistent `TotalAmount` field that silently decoded to 0 (latent, nothing user-facing consumed it). The types are now `RevenueCounts`/`ExpenseCounts` with the real fields, caught by the new live schema tests
 

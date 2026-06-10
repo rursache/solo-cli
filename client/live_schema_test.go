@@ -151,6 +151,39 @@ func TestLiveSchemaCompany(t *testing.T) {
 	assertSchema(t, resp.Data, reflect.TypeOf(CompanyInfo{}), "company")
 }
 
+func TestLiveSchemaCAENCodes(t *testing.T) {
+	c := liveClient(t)
+
+	id, err := c.DiscoverCompanyID()
+	if err != nil {
+		t.Fatalf("DiscoverCompanyID: %v", err)
+	}
+
+	var raw []json.RawMessage
+	if err := c.doJSON("GET", "/proxy/accounting/company/caen-codes/company_"+id, "/settings", nil, &raw); err != nil {
+		t.Fatal(err)
+	}
+	if len(raw) == 0 {
+		t.Skip("no CAEN codes on account")
+	}
+	assertSchema(t, raw[0], reflect.TypeOf(CAENCode{}), "caen")
+
+	// Exactly one code must be the primary activity
+	codes, err := c.GetCAENCodes(id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	primaries := 0
+	for _, code := range codes {
+		if code.IsPrimary {
+			primaries++
+		}
+	}
+	if primaries != 1 {
+		t.Errorf("primary CAEN codes = %d, want exactly 1", primaries)
+	}
+}
+
 // Consistency: the same numbers reached through different endpoints must
 // agree, otherwise the dashboard and the tax calculator would silently
 // diverge from the per-section summaries

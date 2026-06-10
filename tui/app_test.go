@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -63,9 +64,10 @@ func TestTableRowsFillWidth(t *testing.T) {
 // The list viewport must grow and shrink with the terminal height and the
 // rendered view must never exceed it
 func TestViewportAdaptsToHeight(t *testing.T) {
-	// 24 is the practical minimum: the Dashboard's fixed content (company
-	// header + summary box) needs ~22 rows before padding
-	for _, height := range []int{24, 30, 50} {
+	// 28 is the practical minimum: the Dashboard's fixed content (company
+	// header with address and CAEN codes + summary box) needs ~26 rows
+	// before padding
+	for _, height := range []int{28, 35, 50} {
 		m := NewDemoModel()
 		updated, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: height})
 		m = updated.(Model)
@@ -136,6 +138,28 @@ func TestTaxesViewportUsesFullHeight(t *testing.T) {
 	// Expected tail: hint, padding row, help margin row, help text
 	if gap := len(lines) - 1 - hintIdx; gap > 3 {
 		t.Errorf("%d rows between scroll hint and help bar, want at most 3 (dead space)", gap)
+	}
+}
+
+// The dashboard must surface the company address, CAEN codes and net income
+func TestDashboardShowsCompanyDetails(t *testing.T) {
+	m := NewDemoModel()
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	m = updated.(Model)
+	m.activeTab = TabDashboard
+
+	view := m.View()
+	demoNet := m.summary.TotalRevenues - m.summary.TotalDeductibleExpenses
+	for _, want := range []string{
+		"Str. Tehnologiei 42",
+		"CAEN principal: 6201",
+		"CAEN secundare: 6202, 6311",
+		"Net Income:",
+		fmt.Sprintf("%.2f", demoNet),
+	} {
+		if !strings.Contains(view, want) {
+			t.Errorf("dashboard missing %q", want)
+		}
 	}
 }
 

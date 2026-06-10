@@ -3,6 +3,8 @@ package tui
 import (
 	"fmt"
 	"strings"
+
+	"solo-cli/client"
 )
 
 func (m Model) renderDashboard() string {
@@ -17,7 +19,15 @@ func (m Model) renderDashboard() string {
 		b.WriteString(TitleStyle.Render(m.company.Name))
 		b.WriteString("\n")
 		b.WriteString(SummaryLabelStyle.Render(fmt.Sprintf("CUI: %s • Reg: %s", m.company.Code1, m.company.Code2)))
-		b.WriteString("\n\n")
+		b.WriteString("\n")
+		if m.company.Address != "" {
+			b.WriteString(SummaryLabelStyle.Render(truncate(m.company.Address, m.fillWidth(0, 40))))
+			b.WriteString("\n")
+		}
+		if caen := renderCAENLines(m.caenCodes, m.fillWidth(0, 40)); caen != "" {
+			b.WriteString(caen)
+		}
+		b.WriteString("\n")
 	} else if m.client.CompanyID == "" {
 		b.WriteString(ErrorStyle.Render("‼️  Could not determine company ID"))
 		b.WriteString("\n")
@@ -30,7 +40,7 @@ func (m Model) renderDashboard() string {
 
 	// Summary box
 	summaryContent := fmt.Sprintf(
-		"%s %d\n%s %.2f %s\n%s %.2f %s",
+		"%s %d\n%s %.2f %s\n%s %.2f %s\n%s %.2f %s",
 		SummaryLabelStyle.Render("Year:"),
 		m.summary.Year,
 		SummaryLabelStyle.Render("Total Revenues:"),
@@ -38,6 +48,9 @@ func (m Model) renderDashboard() string {
 		m.summary.DisplayCurrency,
 		SummaryLabelStyle.Render("Total Expenses:"),
 		m.summary.TotalDeductibleExpenses,
+		m.summary.DisplayCurrency,
+		SummaryLabelStyle.Render("Net Income:"),
+		m.summary.TotalRevenues-m.summary.TotalDeductibleExpenses,
 		m.summary.DisplayCurrency,
 	)
 
@@ -57,5 +70,34 @@ func (m Model) renderDashboard() string {
 		b.WriteString(InfoStyle().Render(fmt.Sprintf("ℹ️  %d documents pending review", len(m.queue.Items))))
 	}
 
+	return b.String()
+}
+
+// renderCAENLines shows the principal CAEN code with its full name and the
+// secondary ones as a compact code list
+func renderCAENLines(codes []client.CAENCode, width int) string {
+	if len(codes) == 0 {
+		return ""
+	}
+
+	var primary string
+	var secondary []string
+	for _, c := range codes {
+		if c.IsPrimary {
+			primary = fmt.Sprintf("CAEN principal: %s - %s", c.Code, c.Name)
+		} else {
+			secondary = append(secondary, c.Code)
+		}
+	}
+
+	var b strings.Builder
+	if primary != "" {
+		b.WriteString(SummaryLabelStyle.Render(truncate(primary, width)))
+		b.WriteString("\n")
+	}
+	if len(secondary) > 0 {
+		b.WriteString(SummaryLabelStyle.Render(truncate("CAEN secundare: "+strings.Join(secondary, ", "), width)))
+		b.WriteString("\n")
+	}
 	return b.String()
 }

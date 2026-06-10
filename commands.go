@@ -138,6 +138,16 @@ func runCompany(c *client.Client) {
 	fmt.Printf("CUI: %s\n", company.Code1)
 	fmt.Printf("Reg: %s\n", company.Code2)
 	fmt.Printf("Address: %s\n", company.Address)
+
+	if codes, err := c.GetCAENCodes(c.CompanyID); err == nil {
+		for _, code := range codes {
+			marker := ""
+			if code.IsPrimary {
+				marker = " (principal)"
+			}
+			fmt.Printf("CAEN: %s - %s%s\n", code.Code, code.Name, marker)
+		}
+	}
 }
 
 func runTaxes(c *client.Client, args []string) {

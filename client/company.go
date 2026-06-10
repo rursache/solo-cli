@@ -19,6 +19,30 @@ type CompanyInfoResponse struct {
 	ErrorMessage *string      `json:"ErrorMessage"`
 }
 
+// CAENCode represents one CAEN activity code assigned to the company
+type CAENCode struct {
+	Id        int    `json:"Id"`
+	IsPrimary bool   `json:"IsPrimary"`
+	Code      string `json:"Code"`
+	Name      string `json:"Name"`
+	Display   string `json:"Display"`
+}
+
+// GetCAENCodes fetches the company's CAEN activity codes
+func (c *Client) GetCAENCodes(companyID string) ([]CAENCode, error) {
+	if companyID == "" {
+		return nil, fmt.Errorf("company ID not available")
+	}
+
+	path := "/proxy/accounting/company/caen-codes/company_" + companyID
+
+	var result []CAENCode
+	if err := c.doJSON("GET", path, "/settings", nil, &result); err != nil {
+		return nil, fmt.Errorf("failed to get CAEN codes: %w", err)
+	}
+	return result, nil
+}
+
 // GetCompanyInfo fetches company profile by ID
 func (c *Client) GetCompanyInfo(companyID string) (*CompanyInfo, error) {
 	if companyID == "" {

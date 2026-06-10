@@ -26,6 +26,18 @@ func (m Model) fetchCompany() tea.Msg {
 	return companyMsg(company)
 }
 
+func (m Model) fetchCAEN() tea.Msg {
+	if m.client.CompanyID == "" {
+		return caenMsg(nil)
+	}
+	codes, err := m.client.GetCAENCodes(m.client.CompanyID)
+	if err != nil {
+		// CAEN codes are optional, don't fail
+		return caenMsg(nil)
+	}
+	return caenMsg(codes)
+}
+
 func (m Model) fetchRevenues() tea.Msg {
 	revenues, err := m.client.ListRevenues(m.revenueOffset, m.pageSize)
 	if err != nil {

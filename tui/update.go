@@ -31,6 +31,7 @@ func (m Model) fetchAll() tea.Cmd {
 	return tea.Batch(
 		m.fetchSummary,
 		m.fetchCompany,
+		m.fetchCAEN,
 		m.fetchRevenues,
 		m.fetchExpenses,
 		m.fetchRejected,
@@ -102,6 +103,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case companyMsg:
 		m.company = msg
 		// Company is optional, don't block loading
+
+	case caenMsg:
+		m.caenCodes = msg
+		// CAEN codes are optional, don't block loading
 
 	case revenuesMsg:
 		m.revenues = msg

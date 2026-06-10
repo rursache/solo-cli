@@ -52,6 +52,7 @@ type Model struct {
 	// Data
 	summary      *client.Summary
 	company      *client.CompanyInfo
+	caenCodes    []client.CAENCode
 	revenues     *client.RevenueListResponse
 	expenses     *client.ExpenseListResponse
 	rejected     *client.RejectedExpenseResponse
@@ -82,6 +83,7 @@ type Model struct {
 // Messages
 type summaryMsg *client.Summary
 type companyMsg *client.CompanyInfo
+type caenMsg []client.CAENCode
 type revenuesMsg *client.RevenueListResponse
 type expensesMsg *client.ExpenseListResponse
 type rejectedMsg *client.RejectedExpenseResponse
@@ -133,8 +135,9 @@ func NewDemoModel() Model {
 		taxConfig:    taxCfg,
 		taxBreakdown: taxBreakdown,
 		// Pre-populate with demo data
-		summary:  demoSummary,
-		company:  client.GetDemoCompany(),
+		summary:   demoSummary,
+		company:   client.GetDemoCompany(),
+		caenCodes: client.GetDemoCAENCodes(),
 		revenues: client.GetDemoRevenues(),
 		expenses: client.GetDemoExpenses(),
 		rejected: client.GetDemoRejectedExpenses(),
