@@ -14,10 +14,22 @@ const (
 	// tabsRowY is the screen row of the tab bar: title line, its margin and
 	// one blank line above it
 	tabsRowY = 3
+	// searchBarRowY is the search bar row on list tabs: tab bar chrome (5)
+	// plus the showing line (1)
+	searchBarRowY = 6
 	// listRowsStartY is where table rows begin on list tabs: tab bar chrome
-	// (5) plus the showing line (2) and the table header with border (2)
-	listRowsStartY = 9
+	// (5), showing line (1), search bar with blank (2), header with border (2)
+	listRowsStartY = 10
 )
+
+// listChromeShift is how far the list layout is pushed down by content
+// above it (the rejected warning block on the Expenses tab)
+func (m Model) listChromeShift() int {
+	if m.activeTab == TabExpenses && m.rejected != nil && len(m.rejected.Items) > 0 {
+		return len(m.rejected.Items) + 2
+	}
+	return 0
+}
 
 func (m *Model) handleClick(x, y int) tea.Cmd {
 	if y == tabsRowY {
@@ -25,6 +37,11 @@ func (m *Model) handleClick(x, y int) tea.Cmd {
 	}
 	if m.activeTab == TabDashboard {
 		return m.clickYear(x, y)
+	}
+	if m.isListTab() && !m.demoMode && y == searchBarRowY+m.listChromeShift() {
+		m.searching = true
+		m.searchInput = m.searchQuery
+		return nil
 	}
 	m.clickRow(y)
 	return nil
@@ -94,11 +111,7 @@ func (m *Model) clickRow(y int) {
 		return
 	}
 
-	start := listRowsStartY
-	// The rejected warning block shifts the expenses table down
-	if m.activeTab == TabExpenses && m.rejected != nil && len(m.rejected.Items) > 0 {
-		start += len(m.rejected.Items) + 2
-	}
+	start := listRowsStartY + m.listChromeShift()
 
 	if y < start {
 		return

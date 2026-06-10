@@ -74,8 +74,9 @@ func TestViewportAdaptsToHeight(t *testing.T) {
 		updated, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: height})
 		m = updated.(Model)
 
-		// bodyHeight (height - 7) minus the list chrome (showing + header)
-		want := height - 11
+		// bodyHeight (height - 7) minus the list chrome (showing line,
+		// search bar and table header)
+		want := height - 12
 		if want < 3 {
 			want = 3
 		}
@@ -315,8 +316,8 @@ func TestListPaging(t *testing.T) {
 	m := NewDemoModel()
 	m.demoMode = false
 	m.activeTab = TabRevenues
-	// Height 18 -> viewport 7, so the prefetch threshold for 20 loaded
-	// items sits at cursor 13
+	// Height 18 -> viewport 6, so the prefetch threshold for 20 loaded
+	// items sits at cursor 14
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 18})
 	m = updated.(Model)
 
@@ -341,7 +342,7 @@ func TestListPaging(t *testing.T) {
 	}
 
 	// Jump close to the end: within one viewport of item 20
-	m.cursor = 12
+	m.cursor = 13
 	updated, cmd = m.Update(keyMsg("j"))
 	m = updated.(Model)
 	if cmd == nil {
@@ -378,25 +379,32 @@ func TestListPaging(t *testing.T) {
 	}
 }
 
-// The / search captures typing (q must not quit), applies on enter with a
-// refetch and clears on esc
+// The / search captures typing (q must not quit), filters live with a
+// debounce, applies on enter and clears on esc
 func TestSearchFlow(t *testing.T) {
 	m := NewDemoModel()
 	m.demoMode = false
 	m.activeTab = TabRevenues
 
-	updated, _ := m.Update(keyMsg("/"))
+	// The search bar is always visible, even when idle
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	m = updated.(Model)
+	if view := m.View(); !strings.Contains(view, "Search: ") {
+		t.Fatal("search bar not visible when idle")
+	}
+
+	updated, _ = m.Update(keyMsg("/"))
 	m = updated.(Model)
 	if !m.searching {
 		t.Fatal("/ must enter search mode")
 	}
 
-	// Typing accumulates, including letters that are normally hotkeys
+	// Typing accumulates (hotkey letters included) and schedules a debounce
 	for _, ch := range []string{"a", "q", "h"} {
 		updated, cmd := m.Update(keyMsg(ch))
 		m = updated.(Model)
-		if cmd != nil {
-			t.Fatalf("typing %q in search mode must not trigger commands", ch)
+		if cmd == nil {
+			t.Fatalf("typing %q must schedule a debounce tick", ch)
 		}
 	}
 	if m.searchInput != "aqh" {
@@ -411,22 +419,35 @@ func TestSearchFlow(t *testing.T) {
 	if m.searchInput != "aq" {
 		t.Errorf("after backspace: %q, want aq", m.searchInput)
 	}
-
-	// The input is visible in the rendered view
-	if view := m.View(); !strings.Contains(view, "Search: ") || !strings.Contains(view, "aq█") {
+	if view := m.View(); !strings.Contains(view, "aq█") {
 		t.Error("search input not rendered")
 	}
 
-	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	// A stale debounce tick (typed again since) must not apply
+	updated, cmd := m.Update(searchDebounceMsg{seq: m.searchSeq - 1})
 	m = updated.(Model)
-	if m.searching || m.searchQuery != "aq" {
-		t.Fatalf("after enter: searching=%v query=%q, want applied aq", m.searching, m.searchQuery)
+	if m.searchQuery != "" || cmd != nil {
+		t.Fatalf("stale debounce applied: query %q", m.searchQuery)
+	}
+
+	// The latest tick applies the filter live, still in input mode
+	updated, cmd = m.Update(searchDebounceMsg{seq: m.searchSeq})
+	m = updated.(Model)
+	if m.searchQuery != "aq" || !m.searching {
+		t.Fatalf("live apply failed: query %q searching %v", m.searchQuery, m.searching)
 	}
 	if cmd == nil {
-		t.Fatal("applying a search must refetch the active list")
+		t.Fatal("live apply must refetch the active list")
 	}
-	if view := m.View(); !strings.Contains(view, "filter: aq") {
-		t.Error("active filter not shown in status line")
+
+	// Enter leaves input mode keeping the filter
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updated.(Model)
+	if m.searching || m.searchQuery != "aq" {
+		t.Fatalf("after enter: searching=%v query=%q", m.searching, m.searchQuery)
+	}
+	if view := m.View(); !strings.Contains(view, "esc to clear") {
+		t.Error("applied filter not shown in the search bar")
 	}
 
 	// Esc clears the applied filter and refetches
@@ -447,6 +468,25 @@ func TestSearchFlow(t *testing.T) {
 	m = updated.(Model)
 	if m.searchQuery != "" {
 		t.Errorf("tab switch must clear the search query, got %q", m.searchQuery)
+	}
+}
+
+// Clicking the search bar focuses it, prefilled with the applied filter
+func TestSearchBarClick(t *testing.T) {
+	m := NewDemoModel()
+	m.demoMode = false
+	m.activeTab = TabRevenues
+	m.searchQuery = "apple"
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	m = updated.(Model)
+
+	updated, _ = m.Update(tea.MouseMsg{X: 10, Y: searchBarRowY, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress})
+	m = updated.(Model)
+	if !m.searching {
+		t.Fatal("clicking the search bar must focus it")
+	}
+	if m.searchInput != "apple" {
+		t.Errorf("searchInput = %q, want prefilled apple", m.searchInput)
 	}
 }
 

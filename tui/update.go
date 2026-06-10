@@ -17,6 +17,29 @@ func marqueeTick() tea.Cmd {
 	return tea.Tick(250*time.Millisecond, func(time.Time) tea.Msg { return marqueeTickMsg{} })
 }
 
+// searchDebounceMsg fires after a typing pause; only the latest seq applies
+type searchDebounceMsg struct{ seq int }
+
+// debounceSearch schedules a live search apply after a short typing pause
+func (m *Model) debounceSearch() tea.Cmd {
+	m.searchSeq++
+	seq := m.searchSeq
+	return tea.Tick(300*time.Millisecond, func(time.Time) tea.Msg { return searchDebounceMsg{seq} })
+}
+
+// applySearch commits the typed input as the active filter and refetches
+func (m *Model) applySearch() tea.Cmd {
+	query := strings.TrimSpace(m.searchInput)
+	if query == m.searchQuery {
+		return nil
+	}
+	m.searchQuery = query
+	m.cursor = 0
+	m.viewportOffset = 0
+	m.marqueeOffset = 0
+	return m.fetchActiveList()
+}
+
 // Init implements tea.Model
 func (m Model) Init() tea.Cmd {
 	// Demo mode: data already loaded, just tick the spinner for consistency
@@ -50,17 +73,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			switch msg.String() {
 			case "enter":
 				m.searching = false
-				m.searchQuery = strings.TrimSpace(m.searchInput)
-				m.cursor = 0
-				m.viewportOffset = 0
-				m.marqueeOffset = 0
-				return m, m.fetchActiveList()
+				return m, m.applySearch()
 			case "esc":
 				m.searching = false
 				m.searchInput = ""
+				return m, m.applySearch()
 			case "backspace":
 				if r := []rune(m.searchInput); len(r) > 0 {
 					m.searchInput = string(r[:len(r)-1])
+					return m, m.debounceSearch()
 				}
 			case "ctrl+c":
 				return m, tea.Quit
@@ -70,6 +91,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					if msg.Type == tea.KeySpace {
 						m.searchInput += " "
 					}
+					return m, m.debounceSearch()
 				}
 			}
 			return m, nil
@@ -94,15 +116,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "/":
 			if m.isListTab() && !m.demoMode {
 				m.searching = true
-				m.searchInput = ""
+				m.searchInput = m.searchQuery
 			}
 		case "esc":
 			// Clear an applied filter
 			if m.isListTab() && m.searchQuery != "" {
-				m.searchQuery = ""
-				m.cursor = 0
-				m.viewportOffset = 0
-				return m, m.fetchActiveList()
+				m.searchInput = ""
+				return m, m.applySearch()
 			}
 		case "[":
 			if m.canSwitchYear() && m.year > 2015 {
@@ -125,9 +145,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		// Fit the list viewport to the body: showing line (2) and table
-		// header with border (2) are the list's own chrome
-		m.viewportSize = m.bodyHeight() - 4
+		// Fit the list viewport to the body: showing line (1), search bar
+		// with blank (2) and table header with border (2) are the list's
+		// own chrome
+		m.viewportSize = m.bodyHeight() - 5
 		if m.viewportSize < 3 {
 			m.viewportSize = 3
 		}
@@ -238,6 +259,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.scrollDown()
 		case msg.Button == tea.MouseButtonLeft && msg.Action == tea.MouseActionPress:
 			return m, m.handleClick(msg.X, msg.Y)
+		}
+
+	case searchDebounceMsg:
+		// Live filter: apply only the latest pending tick while still typing
+		if m.searching && msg.seq == m.searchSeq {
+			return m, m.applySearch()
 		}
 
 	case marqueeTickMsg:

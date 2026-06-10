@@ -50,7 +50,7 @@ func (m Model) View() string {
 	helpText := "←/→ tabs • ↑/↓ navigate • / search • r refresh • q quit"
 	switch {
 	case m.searching:
-		helpText = "type to filter • enter apply • esc cancel"
+		helpText = "type to filter live • enter done • esc clear"
 	case m.activeTab == TabQueue:
 		helpText = "←/→ tabs • ↑/↓ navigate • / search • d delete • r refresh • q quit"
 	case m.activeTab == TabDashboard:
@@ -164,7 +164,9 @@ func (m Model) renderList(total int, header string, row func(i int) string) stri
 
 	// total is the loaded item count; the server may report more available
 	_, available := m.loadedAndTotal()
-	b.WriteString(m.listStatusLine(fmt.Sprintf("Showing %d-%d of %d", m.viewportOffset+1, min(m.viewportOffset+size, total), available)))
+	b.WriteString(SummaryLabelStyle.Render(fmt.Sprintf("Showing %d-%d of %d", m.viewportOffset+1, min(m.viewportOffset+size, total), available)))
+	b.WriteString("\n")
+	b.WriteString(m.renderSearchBar())
 	b.WriteString("\n\n")
 
 	b.WriteString(TableHeaderStyle.Render(header))
@@ -185,26 +187,24 @@ func (m Model) renderList(total int, header string, row func(i int) string) stri
 	return strings.TrimSuffix(b.String(), "\n")
 }
 
-// listStatusLine renders the line above the table: the search input while
-// typing, the active filter alongside the scroll position, or just the
-// scroll position
-func (m Model) listStatusLine(showing string) string {
-	if m.searching {
-		return SummaryLabelStyle.Render("Search: ") + TableRowStyle.Render(m.searchInput+"█")
+// renderSearchBar renders the always-visible search bar on list tabs:
+// the live input while typing, the applied filter, or a hint
+func (m Model) renderSearchBar() string {
+	label := SummaryLabelStyle.Render("Search: ")
+	switch {
+	case m.searching:
+		return label + TableRowStyle.Render(m.searchInput+"█")
+	case m.searchQuery != "":
+		return label + TableRowStyle.Render(m.searchQuery) + SummaryLabelStyle.Render("  (esc to clear)")
+	default:
+		return label + SummaryLabelStyle.Render("press / or click here to filter")
 	}
-	if m.searchQuery != "" {
-		return SummaryLabelStyle.Render(showing+" • filter: ") + TableRowStyle.Render(m.searchQuery)
-	}
-	return SummaryLabelStyle.Render(showing)
 }
 
-// emptyList renders the empty state, keeping the search input and filter
-// visible so a query without matches can still be edited or cleared
+// emptyList renders the empty state, keeping the search bar visible so a
+// query without matches can still be edited or cleared
 func (m Model) emptyList(message string) string {
-	if m.searching || m.searchQuery != "" {
-		return m.listStatusLine("No results") + "\n\n" + message + " (esc to clear the filter)"
-	}
-	return message
+	return m.renderSearchBar() + "\n\n" + message
 }
 
 // bodyHeight returns the rows available for tab content between the

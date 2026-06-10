@@ -71,6 +71,7 @@ type Model struct {
 	searching      bool   // Typing in the search input
 	searchInput    string // Text being typed
 	searchQuery    string // Applied server-side filter for the active list tab
+	searchSeq      int    // Debounce sequence, only the latest tick applies
 	marqueeOffset  int    // Scroll position of the focused row's marquee
 	viewportOffset int // First visible item index
 	viewportSize   int // Number of visible items
