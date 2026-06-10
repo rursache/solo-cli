@@ -74,9 +74,9 @@ func TestViewportAdaptsToHeight(t *testing.T) {
 		updated, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: height})
 		m = updated.(Model)
 
-		// bodyHeight (height - 7) minus the list chrome (combined
+		// bodyHeight (height - 6) minus the list chrome (combined
 		// search/showing line and table header)
-		want := height - 11
+		want := height - 10
 		if want < 3 {
 			want = 3
 		}
@@ -316,8 +316,8 @@ func TestListPaging(t *testing.T) {
 	m := NewDemoModel()
 	m.demoMode = false
 	m.activeTab = TabRevenues
-	// Height 18 -> viewport 7, so the prefetch threshold for 20 loaded
-	// items sits at cursor 13
+	// Height 18 -> viewport 8, so the prefetch threshold for 20 loaded
+	// items sits at cursor 12
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 18})
 	m = updated.(Model)
 
@@ -353,7 +353,7 @@ func TestListPaging(t *testing.T) {
 	}
 
 	// Jump close to the end: within one viewport of item 20
-	m.cursor = 12
+	m.cursor = 11
 	updated, cmd = m.Update(keyMsg("j"))
 	m = updated.(Model)
 	if cmd == nil {
@@ -479,6 +479,34 @@ func TestSearchFlow(t *testing.T) {
 	m = updated.(Model)
 	if m.searchQuery != "" {
 		t.Errorf("tab switch must clear the search query, got %q", m.searchQuery)
+	}
+}
+
+// The title row hosts a clickable quit button on the right edge
+func TestQuitButton(t *testing.T) {
+	m := NewDemoModel()
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	m = updated.(Model)
+
+	// The button is rendered on the first line
+	firstLine := strings.Split(m.View(), "\n")[0]
+	if !strings.Contains(firstLine, "quit") {
+		t.Fatal("quit button not on the title row")
+	}
+
+	// Clicking its zone quits
+	_, cmd := m.Update(tea.MouseMsg{X: 97, Y: titleRowY, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress})
+	if cmd == nil {
+		t.Fatal("clicking the quit button must return a command")
+	}
+	if _, ok := cmd().(tea.QuitMsg); !ok {
+		t.Error("quit button click must produce tea.QuitMsg")
+	}
+
+	// Clicking the title text itself must not quit
+	_, cmd = m.Update(tea.MouseMsg{X: 3, Y: titleRowY, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress})
+	if cmd != nil {
+		t.Error("clicking the title text must not quit")
 	}
 }
 

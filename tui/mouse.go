@@ -11,14 +11,15 @@ import (
 )
 
 const (
-	// tabsRowY is the screen row of the tab bar: title line, its margin and
-	// one blank line above it
-	tabsRowY = 3
+	// titleRowY holds the app title and the quit button
+	titleRowY = 0
+	// tabsRowY is the screen row of the tab bar: title line and one blank
+	tabsRowY = 2
 	// searchBarRowY is the combined search/showing line, the first body row
-	searchBarRowY = 5
+	searchBarRowY = 4
 	// listRowsStartY is where table rows begin on list tabs: tab bar chrome
-	// (5), search/showing line with blank (2), header with border (2)
-	listRowsStartY = 9
+	// (4), search/showing line with blank (2), header with border (2)
+	listRowsStartY = 8
 )
 
 // listChromeShift is how far the list layout is pushed down by content
@@ -31,6 +32,13 @@ func (m Model) listChromeShift() int {
 }
 
 func (m *Model) handleClick(x, y int) tea.Cmd {
+	if y == titleRowY {
+		// The quit button occupies the right end of the title row
+		if m.width > 0 && x >= m.width-1-lipgloss.Width(quitLabel) {
+			return tea.Quit
+		}
+		return nil
+	}
 	if y == tabsRowY {
 		return m.clickTab(x)
 	}

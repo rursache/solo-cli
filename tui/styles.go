@@ -18,6 +18,11 @@ var (
 			Foreground(primaryColor).
 			MarginBottom(1)
 
+	// App title style (no margin, the header row is compact)
+	AppTitleStyle = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(primaryColor)
+
 	// Tab styles
 	ActiveTabStyle = lipgloss.NewStyle().
 			Bold(true).

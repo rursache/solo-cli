@@ -7,6 +7,7 @@
 - **Richer Dashboard**: shows the company address, the CAEN codes (principal with full name, secundare as a code list) and the net income (revenues - expenses) in the summary box. The `company` CLI command also lists the CAEN codes
 
 ### Changed
+- **Compact header with quit button**: one less blank line between the title and the tabs, the search bar and result counter share one line (counter right aligned) and the title row has a clickable `✕ quit` button on the right edge
 - **TUI Queue tab**: removed the `Status` column (queued documents are pending by definition) and the `Days` column is left aligned
 
 ### Fixed

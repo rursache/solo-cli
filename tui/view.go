@@ -15,8 +15,13 @@ func (m Model) View() string {
 
 	var b strings.Builder
 
-	// Title
-	b.WriteString(TitleStyle.Render("SOLO.ro CLI"))
+	// Title row with the quit button right aligned
+	title := AppTitleStyle.Render("SOLO.ro CLI")
+	quit := SummaryLabelStyle.Render(quitLabel)
+	if gap := m.width - lipgloss.Width(title) - lipgloss.Width(quit) - 1; gap > 0 {
+		title += strings.Repeat(" ", gap) + quit
+	}
+	b.WriteString(title)
 	b.WriteString("\n\n")
 
 	// Tabs
@@ -218,12 +223,15 @@ func (m Model) emptyList(message string) string {
 	return m.renderSearchBar() + "\n\n" + message
 }
 
+// quitLabel is the clickable quit button on the title row
+const quitLabel = "✕ quit"
+
 // bodyHeight returns the rows available for tab content between the
-// title/tab chrome (5 lines) and the pinned help footer (2 lines, after
+// title/tab chrome (4 lines) and the pinned help footer (2 lines, after
 // one padding row). Every tab derives its viewport from this so resize
 // behavior stays identical across tabs
 func (m Model) bodyHeight() int {
-	h := m.height - 7
+	h := m.height - 6
 	if h < 5 {
 		h = 5
 	}
