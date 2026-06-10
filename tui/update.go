@@ -101,6 +101,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "q", "ctrl+c":
 			return m, tea.Quit
+		case "enter":
+			if m.detailOpen {
+				m.detailOpen = false
+			} else if m.isListTab() && m.cursor < m.getMaxCursor() && m.getMaxCursor() > 0 {
+				m.detailOpen = true
+			}
 		case "tab", "right", "l":
 			return m, m.setTab((m.activeTab + 1) % tabCount)
 		case "shift+tab", "left", "h":
@@ -120,6 +126,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.searchInput = m.searchQuery
 			}
 		case "esc":
+			if m.detailOpen {
+				m.detailOpen = false
+				break
+			}
 			// Clear an applied filter
 			if m.isListTab() && m.searchQuery != "" {
 				m.searchInput = ""
@@ -317,6 +327,7 @@ func (m *Model) setTab(t Tab) tea.Cmd {
 	m.marqueeOffset = 0
 	m.viewportOffset = 0
 	m.taxesScroll = 0
+	m.detailOpen = false
 	m.searching = false
 	m.searchInput = ""
 	m.searchQuery = ""

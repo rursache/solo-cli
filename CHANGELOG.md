@@ -1,6 +1,7 @@
 ## [Unreleased]
 
 ### Added
+- **Row detail modal**: press Enter on any list row to open a centered modal with every field untruncated (dates, payment status, local amounts, VAT, statuses, deductibility, queue deadlines). Arrow keys browse items while open, Esc or a click closes it. No nested navigation
 - **Chart tab**: monthly revenue bar chart for the selected year, aggregated in RON from the invoice list (foreign currency invoices use their RON local amount). Switch years with `[` and `]`. Loads the complete invoice list automatically when opened
 
 ### Changed

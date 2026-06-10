@@ -73,6 +73,7 @@ type Model struct {
 	err            error
 	spinner        spinner.Model
 	cursor         int
+	detailOpen     bool   // Detail modal for the selected row
 	searching      bool   // Typing in the search input
 	searchInput    string // Text being typed
 	searchQuery    string // Applied server-side filter for the active list tab

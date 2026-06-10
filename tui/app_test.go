@@ -559,6 +559,70 @@ func TestDashboardShowsCompanyDetails(t *testing.T) {
 	}
 }
 
+// Enter opens the detail modal for the selected row, navigation browses
+// items while open, esc and clicks close it
+func TestDetailModal(t *testing.T) {
+	m := NewDemoModel()
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	m = updated.(Model)
+	m.activeTab = TabRevenues
+
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updated.(Model)
+	if !m.detailOpen {
+		t.Fatal("enter must open the detail modal")
+	}
+
+	view := m.View()
+	first := m.revenues.Items[0]
+	if !strings.Contains(view, first.SerialCode) || !strings.Contains(view, first.ClientName) {
+		t.Errorf("modal missing fields of the selected row")
+	}
+	if !strings.Contains(view, "Issued:") || !strings.Contains(view, "Paid:") {
+		t.Error("modal missing field labels")
+	}
+
+	// The modal must still fit the terminal exactly with the pinned help
+	lines := strings.Split(view, "\n")
+	if len(lines) != 30 {
+		t.Errorf("modal view has %d lines, want 30", len(lines))
+	}
+
+	// j browses to the next item while open
+	updated, _ = m.Update(keyMsg("j"))
+	m = updated.(Model)
+	if !m.detailOpen {
+		t.Fatal("browsing must keep the modal open")
+	}
+	if view := m.View(); !strings.Contains(view, m.revenues.Items[1].SerialCode) {
+		t.Error("modal did not follow the cursor")
+	}
+
+	// Esc closes
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	m = updated.(Model)
+	if m.detailOpen {
+		t.Fatal("esc must close the modal")
+	}
+
+	// A click closes it too
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updated.(Model)
+	updated, _ = m.Update(tea.MouseMsg{X: 50, Y: 15, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress})
+	m = updated.(Model)
+	if m.detailOpen {
+		t.Error("click must close the modal")
+	}
+
+	// Enter on a non-list tab does nothing
+	m.activeTab = TabDashboard
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updated.(Model)
+	if m.detailOpen {
+		t.Error("enter on the dashboard must not open a modal")
+	}
+}
+
 // The Chart tab aggregates invoices of the displayed year by month in RON
 func TestChartTab(t *testing.T) {
 	m := NewDemoModel()

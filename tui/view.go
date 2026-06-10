@@ -35,32 +35,37 @@ func (m Model) View() string {
 		b.WriteString(LoadingStyle.Render(" Loading..."))
 		b.WriteString("\n")
 	} else {
-		// Content based on active tab
-		switch m.activeTab {
-		case TabDashboard:
+		// Content based on active tab. The detail modal replaces the list
+		// while open
+		switch {
+		case m.detailOpen && m.isListTab():
+			b.WriteString(m.renderDetail())
+		case m.activeTab == TabDashboard:
 			b.WriteString(m.renderDashboard())
-		case TabRevenues:
+		case m.activeTab == TabRevenues:
 			b.WriteString(m.renderRevenues())
-		case TabExpenses:
+		case m.activeTab == TabExpenses:
 			b.WriteString(m.renderExpenses())
-		case TabQueue:
+		case m.activeTab == TabQueue:
 			b.WriteString(m.renderQueue())
-		case TabEFactura:
+		case m.activeTab == TabEFactura:
 			b.WriteString(m.renderEFactura())
-		case TabTaxes:
+		case m.activeTab == TabTaxes:
 			b.WriteString(m.renderTaxesViewport())
-		case TabChart:
+		case m.activeTab == TabChart:
 			b.WriteString(m.renderChart())
 		}
 	}
 
 	// Help, pinned to the bottom row of the terminal
-	helpText := "←/→ tabs • ↑/↓ navigate • / search • r refresh • q quit"
+	helpText := "←/→ tabs • ↑/↓ navigate • enter details • / search • r refresh • q quit"
 	switch {
+	case m.detailOpen && m.isListTab():
+		helpText = "↑/↓ browse items • enter/esc close • q quit"
 	case m.searching:
 		helpText = "type to filter live • enter done • esc clear"
 	case m.activeTab == TabQueue:
-		helpText = "←/→ tabs • ↑/↓ navigate • / search • d delete • r refresh • q quit"
+		helpText = "←/→ tabs • ↑/↓ navigate • enter details • / search • d delete • r refresh • q quit"
 	case m.activeTab == TabDashboard, m.activeTab == TabChart:
 		helpText = "←/→ tabs • [ and ] switch year • r refresh • q quit"
 	case m.activeTab == TabTaxes:

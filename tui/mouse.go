@@ -39,6 +39,11 @@ func (m *Model) handleClick(x, y int) tea.Cmd {
 	if m.activeTab == TabDashboard {
 		return m.clickYear(x, y)
 	}
+	// Any click closes an open detail modal
+	if m.detailOpen {
+		m.detailOpen = false
+		return nil
+	}
 	if m.isListTab() && !m.demoMode && y == searchBarRowY+m.listChromeShift() {
 		m.searching = true
 		m.searchInput = m.searchQuery
