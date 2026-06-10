@@ -18,52 +18,15 @@ Repository: `github.com/rursache/solo-cli`
 
 ## Codebase Structure
 
-```
-solo-cli/
-  main.go              - Entry point, CLI command routing, help, TUI launch
-  commands.go          - CLI command handlers (summary, revenues, expenses, queue, efactura, company, taxes, upload)
-  setup.go             - Config loading, authentication and API client setup
-  skills.go            - AI skill download/install logic and first-run prompt
-  go.mod / go.sum      - Go module definition (module name: solo-cli)
-  config/
-    config.go          - Config loading/saving, path resolution, validation
-    taxes.go           - TaxConfig/TaxThreshold types, DefaultTaxConfig(), LoadTaxes(), EnsureTaxesExists()
-  taxes/
-    taxes.go           - Tax calculation engine: Calculate(), ThresholdResult, TaxBreakdown, format helpers
-  client/
-    client.go          - HTTP client with cookie jar, Login(), GetSummary()
-    cookies.go         - Cookie persistence (save/load/clear from disk)
-    revenues.go        - Revenue types and ListRevenues(), GetRevenueSummary()
-    expenses.go        - Expense/Queue/Rejected types, list/delete operations
-    efactura.go        - e-Factura types and ListEFactura()
-    company.go         - CompanyInfo type and GetCompanyInfo()
-    company_discover.go - Auto-discovery of company ID from authenticated HTML
-    upload.go          - Two-step document upload (multipart upload + confirm)
-    demo.go            - Mock data generators for demo/screenshot mode
-  tui/
-    model.go           - Tab type, Model struct, message types, NewModel/NewDemoModel
-    update.go          - Init/Update loop, key handling, viewport sizing on resize
-    fetch.go           - Data fetch commands and queue deletion
-    view.go            - View composition, tab bar, table/layout helpers
-    tab_dashboard.go   - Dashboard tab rendering
-    tab_revenues.go    - Revenues tab rendering
-    tab_expenses.go    - Expenses tab rendering (incl. rejected warning block)
-    tab_queue.go       - Queue tab rendering
-    tab_efactura.go    - e-Factura tab rendering
-    tab_taxes.go       - Taxes tab rendering, scroll viewport, threshold hints
-    styles.go          - lipgloss style definitions (colors, tabs, tables, etc.)
-    app_test.go        - TUI render tests (width/height fitting, demo model)
-  skill/
-    SKILL.md           - AI skill manifest for agentic tools
-    references/
-      help-man-page.md - CLI help reference for AI skills
-  docs/
-    tui_*.jpg          - TUI screenshots
-    PLAN.md, TODO.md, WORK.md - Development notes
-  .github/
-    workflows/
-      trigger-tap-update.yml - GitHub Actions workflow for Homebrew tap updates
-```
+Package-level map (read the actual files for details, names are self-describing):
+
+- **root** (`main` package): CLI entry point and command routing (`main.go`), command handlers (`commands.go`), auth/client setup (`setup.go`), AI skill installer (`skills.go`), e2e tests (`e2e_test.go`)
+- **`client/`**: SOLO.ro API client. One file per resource (revenues, expenses, efactura, company, upload, cookies), shared HTTP plumbing in `http.go`, mock data for demo mode in `demo.go`, live/schema tests behind the `live` build tag
+- **`config/`**: config.json handling (`config.go`) and taxes.json with `DefaultTaxConfig()` (`taxes.go`)
+- **`taxes/`**: pure tax calculation engine, no I/O
+- **`tui/`**: Bubble Tea UI. Elm-style split (`model.go`, `update.go`, `view.go`, `fetch.go`, `mouse.go`), one `tab_*.go` per tab, styles in `styles.go`
+- **`skill/`**: AI skill manifest (`SKILL.md`) and CLI reference, downloaded by `setup-skills` from the master branch
+- **`.github/workflows/`**: `trigger-tap-update.yml` dispatches the Homebrew tap update on release
 
 ## Key Concepts
 
