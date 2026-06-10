@@ -477,7 +477,7 @@ func (m Model) renderRevenues() string {
 	b.WriteString(SummaryLabelStyle.Render(fmt.Sprintf("Showing %d-%d of %d", m.viewportOffset+1, min(m.viewportOffset+m.viewportSize, total), total)))
 	b.WriteString("\n\n")
 
-	b.WriteString(TableHeaderStyle.Render(fmt.Sprintf("%-4s %-18s %12s %-5s %s", "Paid", "Invoice", "Amount", "Curr", "Client")))
+	b.WriteString(TableHeaderStyle.Render(fmt.Sprintf("%-18s %12s %-5s %s", "Invoice", "Amount", "Curr", "Client")))
 	b.WriteString("\n")
 
 	// Calculate visible range
@@ -485,10 +485,6 @@ func (m Model) renderRevenues() string {
 
 	for i := m.viewportOffset; i < endIdx; i++ {
 		r := m.revenues.Items[i]
-		paid := "✅"
-		if !r.IsPaid {
-			paid = "❌"
-		}
 
 		// Truncate client name
 		clientName := r.ClientName
@@ -496,11 +492,10 @@ func (m Model) renderRevenues() string {
 			clientName = clientName[:27] + "..."
 		}
 
-		row := fmt.Sprintf("%-4s %-18s %12.2f %-5s %s",
-			paid,
+		row := fmt.Sprintf("%-18s %12.2f %-5s %s",
 			truncate(r.SerialCode, 18),
 			r.Total,
-			r.Currency.ShortName,
+			strings.ToUpper(r.Currency.ShortName),
 			clientName,
 		)
 
