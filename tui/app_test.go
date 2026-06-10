@@ -139,6 +139,60 @@ func TestTaxesViewportUsesFullHeight(t *testing.T) {
 	}
 }
 
+func TestMouseNavigation(t *testing.T) {
+	m := NewDemoModel()
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	m = updated.(Model)
+
+	// Click on the Expenses tab label in the tab bar
+	x := 0
+	for _, tab := range tabOrder {
+		w := lipgloss.Width(InactiveTabStyle.Render(tab.String()))
+		if tab == m.activeTab {
+			w = lipgloss.Width(ActiveTabStyle.Render(tab.String()))
+		}
+		if tab == TabExpenses {
+			break
+		}
+		x += w
+	}
+	updated, _ = m.Update(tea.MouseMsg{X: x + 2, Y: tabsRowY, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress})
+	m = updated.(Model)
+	if m.activeTab != TabExpenses {
+		t.Fatalf("activeTab = %s, want Expenses after tab click", m.activeTab)
+	}
+
+	// Click on the third visible row (expenses demo has a rejected block)
+	rowStart := listRowsStartY
+	if m.rejected != nil && len(m.rejected.Items) > 0 {
+		rowStart += len(m.rejected.Items) + 2
+	}
+	updated, _ = m.Update(tea.MouseMsg{X: 5, Y: rowStart + 2, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress})
+	m = updated.(Model)
+	if m.cursor != 2 {
+		t.Errorf("cursor = %d, want 2 after row click", m.cursor)
+	}
+
+	// Click far below the list must not move the cursor
+	updated, _ = m.Update(tea.MouseMsg{X: 5, Y: 39, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress})
+	m = updated.(Model)
+	if m.cursor != 2 {
+		t.Errorf("cursor = %d, want unchanged 2 after dead-space click", m.cursor)
+	}
+
+	// Wheel scrolls the cursor
+	updated, _ = m.Update(tea.MouseMsg{Button: tea.MouseButtonWheelDown})
+	m = updated.(Model)
+	if m.cursor != 3 {
+		t.Errorf("cursor = %d, want 3 after wheel down", m.cursor)
+	}
+	updated, _ = m.Update(tea.MouseMsg{Button: tea.MouseButtonWheelUp})
+	m = updated.(Model)
+	if m.cursor != 2 {
+		t.Errorf("cursor = %d, want 2 after wheel up", m.cursor)
+	}
+}
+
 func TestMarquee(t *testing.T) {
 	// Fits: plain padding, no animation regardless of offset
 	if got := marquee("abc", 5, 99); got != "abc  " {

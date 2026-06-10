@@ -67,11 +67,13 @@ func (m Model) View() string {
 	return content + help
 }
 
+// tabOrder is the display order of the tab bar, shared with click handling
+var tabOrder = []Tab{TabDashboard, TabRevenues, TabExpenses, TabEFactura, TabQueue, TabTaxes}
+
 func (m Model) renderTabs() string {
-	tabs := []Tab{TabDashboard, TabRevenues, TabExpenses, TabEFactura, TabQueue, TabTaxes}
 	var parts []string
 
-	for _, tab := range tabs {
+	for _, tab := range tabOrder {
 		if tab == m.activeTab {
 			parts = append(parts, ActiveTabStyle.Render(tab.String()))
 		} else {

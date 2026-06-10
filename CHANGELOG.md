@@ -1,6 +1,7 @@
 ## [Unreleased]
 
 ### Added
+- **TUI mouse support**: click a tab to switch to it, click a table row to select it and use the mouse wheel to scroll lists and the Taxes view. Note: with mouse capture on, text selection in the terminal needs the usual modifier key (Shift or Option/Alt depending on the terminal)
 - **TUI marquee for long text**: when the focused row has text too long for its column (category, supplier, client, document, party), it scrolls in place like a label marquee. Unfocused rows keep the static `...` truncation
 
 ### Changed

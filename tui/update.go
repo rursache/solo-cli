@@ -47,56 +47,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "q", "ctrl+c":
 			return m, tea.Quit
 		case "tab", "right", "l":
-			m.activeTab = (m.activeTab + 1) % tabCount
-			m.cursor = 0
-			m.marqueeOffset = 0
-			m.viewportOffset = 0
-			m.taxesScroll = 0
+			m.setTab((m.activeTab + 1) % tabCount)
 		case "shift+tab", "left", "h":
-			m.activeTab = (m.activeTab - 1 + tabCount) % tabCount
-			m.cursor = 0
-			m.marqueeOffset = 0
-			m.viewportOffset = 0
-			m.taxesScroll = 0
+			m.setTab((m.activeTab - 1 + tabCount) % tabCount)
 		case "d", "delete", "backspace":
 			if m.activeTab == TabQueue {
 				m.loading = true
 				return m, m.deleteSelectedExpense()
 			}
 		case "up", "k":
-			if m.activeTab == TabTaxes {
-				if m.taxesScroll > 0 {
-					m.taxesScroll--
-				}
-			} else if m.cursor > 0 {
-				m.cursor--
-				m.marqueeOffset = 0
-				if m.cursor < m.viewportOffset {
-					m.viewportOffset = m.cursor
-				}
-			}
+			m.scrollUp()
 		case "down", "j":
-			if m.activeTab == TabTaxes {
-				// Must match the viewport math in renderTaxesViewport
-				availHeight := m.bodyHeight() - 1
-				maxScroll := m.taxesLines - availHeight
-				if maxScroll < 0 {
-					maxScroll = 0
-				}
-				if m.taxesScroll < maxScroll {
-					m.taxesScroll++
-				}
-			} else {
-				maxCursor := m.getMaxCursor()
-				if m.cursor < maxCursor-1 {
-					m.cursor++
-					m.marqueeOffset = 0
-					size := m.tabViewportSize()
-					if m.cursor >= m.viewportOffset+size {
-						m.viewportOffset = m.cursor - size + 1
-					}
-				}
-			}
+			m.scrollDown()
 		case "r":
 			// Refresh
 			m.loading = true
@@ -170,6 +132,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Refresh queue after deletion
 		return m, m.fetchQueue
 
+	case tea.MouseMsg:
+		switch {
+		case msg.Button == tea.MouseButtonWheelUp:
+			m.scrollUp()
+		case msg.Button == tea.MouseButtonWheelDown:
+			m.scrollDown()
+		case msg.Button == tea.MouseButtonLeft && msg.Action == tea.MouseActionPress:
+			m.handleClick(msg.X, msg.Y)
+		}
+
 	case marqueeTickMsg:
 		m.marqueeOffset++
 		return m, marqueeTick()
@@ -181,6 +153,53 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, nil
+}
+
+// setTab switches the active tab and resets per-tab navigation state
+func (m *Model) setTab(t Tab) {
+	m.activeTab = t
+	m.cursor = 0
+	m.marqueeOffset = 0
+	m.viewportOffset = 0
+	m.taxesScroll = 0
+}
+
+func (m *Model) scrollUp() {
+	if m.activeTab == TabTaxes {
+		if m.taxesScroll > 0 {
+			m.taxesScroll--
+		}
+	} else if m.cursor > 0 {
+		m.cursor--
+		m.marqueeOffset = 0
+		if m.cursor < m.viewportOffset {
+			m.viewportOffset = m.cursor
+		}
+	}
+}
+
+func (m *Model) scrollDown() {
+	if m.activeTab == TabTaxes {
+		// Must match the viewport math in renderTaxesViewport
+		availHeight := m.bodyHeight() - 1
+		maxScroll := m.taxesLines - availHeight
+		if maxScroll < 0 {
+			maxScroll = 0
+		}
+		if m.taxesScroll < maxScroll {
+			m.taxesScroll++
+		}
+	} else {
+		maxCursor := m.getMaxCursor()
+		if m.cursor < maxCursor-1 {
+			m.cursor++
+			m.marqueeOffset = 0
+			size := m.tabViewportSize()
+			if m.cursor >= m.viewportOffset+size {
+				m.viewportOffset = m.cursor - size + 1
+			}
+		}
+	}
 }
 
 func (m *Model) checkLoadingDone() {
