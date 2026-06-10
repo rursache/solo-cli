@@ -150,13 +150,15 @@ go build -o solo-cli .
 ### Test
 
 ```bash
-go test ./...                     # Offline unit tests (no credentials needed)
-go test -tags live ./client -v    # Live integration tests against SOLO.ro
+go test ./...                     # Offline tests: unit, TUI render, e2e CLI (no credentials needed)
+go test -tags live ./client -v    # Live integration + schema drift tests against SOLO.ro
 ```
 
-- **Offline tests**: `taxes/taxes_test.go` (tax math), `config/config_test.go` (config and taxes.json loading), `client/client_test.go` (all API client paths against an httptest mock server, including login, lists, upload, company discovery, and cookie persistence). The `baseURL` in `client/client.go` is a var so tests can redirect it.
-- **Live tests** (`client/live_test.go`, build tag `live`): authenticate with the developer's own `~/.config/solo-cli/config.json` (reusing saved cookies like the CLI does) and exercise read-only endpoints. They never upload or delete anything. Skipped automatically if no valid config exists.
-- TUI testing remains manual via `solo-cli demo`.
+- **Offline unit tests**: `taxes/taxes_test.go` (tax math), `config/config_test.go` (config and taxes.json loading), `client/client_test.go` (all API client paths against an httptest mock server, including login, lists, upload, company discovery, and cookie persistence). The `baseURL` in `client/client.go` is a var so tests can redirect it.
+- **TUI render tests** (`tui/app_test.go`): render the demo model at fixed terminal sizes and assert width/height fitting, bottom-pinned help bar, full-viewport behavior, marquee output and mouse hit-testing.
+- **E2E CLI tests** (`e2e_test.go`): build the real binary and run it against a mock SOLO.ro API (`SOLO_API_BASE` env override) with an isolated HOME. They assert exact command output, exit codes, stdout/stderr split, config and cookie file creation with correct permissions, session cookie reuse across runs, and that the CLI taxes output matches `taxes.Calculate`.
+- **Live tests** (`client/live_test.go` + `client/live_schema_test.go`, build tag `live`): authenticate with the developer's own `~/.config/solo-cli/config.json` (reusing saved cookies like the CLI does) and exercise read-only endpoints. The schema tests fetch raw JSON and verify every field our structs map still exists in the live payloads (Go decodes missing fields to silent zero values, so this is the only way to catch API drift), plus cross-endpoint consistency checks. They never upload or delete anything. Skipped automatically if no valid config exists.
+- TUI visual testing remains manual via `solo-cli demo`.
 
 ### Dependencies
 

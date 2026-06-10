@@ -5,10 +5,19 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/cookiejar"
+	"os"
 )
 
-// baseURL is a var so tests can point the client at a mock server
+// baseURL is a var so tests can point the client at a mock server. The
+// SOLO_API_BASE env var overrides it so the e2e suite can run the real
+// binary against a local mock API
 var baseURL = "https://falcon.solo.ro"
+
+func init() {
+	if v := os.Getenv("SOLO_API_BASE"); v != "" {
+		baseURL = v
+	}
+}
 
 const loginPath = "/api/security/login"
 
