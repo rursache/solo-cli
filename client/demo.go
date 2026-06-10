@@ -1,6 +1,9 @@
 package client
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 // GetDemoSummary returns mock summary data for demo mode
 func GetDemoSummary() *Summary {
@@ -43,14 +46,14 @@ func GetDemoRevenues() *RevenueListResponse {
 	usdCurrency := Currency{Id: 3, Code: "USD", Name: "US Dollar", ShortName: "USD", IsDefault: false}
 
 	items := []Revenue{
-		{UniqueCode: "inv-001", SerialCode: "ACME-2025-001", ClientName: "Cloud Services Inc", IssueDate: "2025-01-05", PaymentDate: "2025-01-10", IsPaid: true, Total: 15000.00, Currency: eurCurrency},
-		{UniqueCode: "inv-002", SerialCode: "ACME-2025-002", ClientName: "DevTools Pro SRL", IssueDate: "2025-01-08", PaymentDate: "", IsPaid: false, Total: 8500.00, Currency: ronCurrency},
-		{UniqueCode: "inv-003", SerialCode: "ACME-2025-003", ClientName: "TechStart Solutions", IssueDate: "2025-01-12", PaymentDate: "2025-01-15", IsPaid: true, Total: 22400.00, Currency: ronCurrency},
-		{UniqueCode: "inv-004", SerialCode: "ACME-2025-004", ClientName: "Nordic Systems AB", IssueDate: "2025-01-15", PaymentDate: "2025-01-20", IsPaid: true, Total: 5200.00, Currency: eurCurrency},
-		{UniqueCode: "inv-005", SerialCode: "ACME-2025-005", ClientName: "DataFlow Analytics", IssueDate: "2025-01-18", PaymentDate: "", IsPaid: false, Total: 12750.00, Currency: usdCurrency},
-		{UniqueCode: "inv-006", SerialCode: "ACME-2025-006", ClientName: "InnovateTech GmbH", IssueDate: "2025-01-22", PaymentDate: "2025-01-25", IsPaid: true, Total: 18900.00, Currency: eurCurrency},
-		{UniqueCode: "inv-007", SerialCode: "ACME-2025-007", ClientName: "Quantum Labs SRL", IssueDate: "2025-01-25", PaymentDate: "", IsPaid: false, Total: 6300.00, Currency: ronCurrency},
-		{UniqueCode: "inv-008", SerialCode: "ACME-2025-008", ClientName: "ByteForge Studios", IssueDate: "2025-01-28", PaymentDate: "2025-02-01", IsPaid: true, Total: 31500.00, Currency: ronCurrency},
+		{UniqueCode: "inv-001", SerialCode: "ACME-2025-001", ClientName: "Cloud Services Inc", IssueDate: fmt.Sprintf("%d-01-05", time.Now().Year()), PaymentDate: fmt.Sprintf("%d-01-10", time.Now().Year()), IsPaid: true, Total: 15000.00, Currency: eurCurrency},
+		{UniqueCode: "inv-002", SerialCode: "ACME-2025-002", ClientName: "DevTools Pro SRL", IssueDate: fmt.Sprintf("%d-01-08", time.Now().Year()), PaymentDate: "", IsPaid: false, Total: 8500.00, Currency: ronCurrency},
+		{UniqueCode: "inv-003", SerialCode: "ACME-2025-003", ClientName: "TechStart Solutions", IssueDate: fmt.Sprintf("%d-01-12", time.Now().Year()), PaymentDate: fmt.Sprintf("%d-01-15", time.Now().Year()), IsPaid: true, Total: 22400.00, Currency: ronCurrency},
+		{UniqueCode: "inv-004", SerialCode: "ACME-2025-004", ClientName: "Nordic Systems AB", IssueDate: fmt.Sprintf("%d-01-15", time.Now().Year()), PaymentDate: fmt.Sprintf("%d-01-20", time.Now().Year()), IsPaid: true, Total: 5200.00, Currency: eurCurrency},
+		{UniqueCode: "inv-005", SerialCode: "ACME-2025-005", ClientName: "DataFlow Analytics", IssueDate: fmt.Sprintf("%d-01-18", time.Now().Year()), PaymentDate: "", IsPaid: false, Total: 12750.00, Currency: usdCurrency},
+		{UniqueCode: "inv-006", SerialCode: "ACME-2025-006", ClientName: "InnovateTech GmbH", IssueDate: fmt.Sprintf("%d-01-22", time.Now().Year()), PaymentDate: fmt.Sprintf("%d-01-25", time.Now().Year()), IsPaid: true, Total: 18900.00, Currency: eurCurrency},
+		{UniqueCode: "inv-007", SerialCode: "ACME-2025-007", ClientName: "Quantum Labs SRL", IssueDate: fmt.Sprintf("%d-01-25", time.Now().Year()), PaymentDate: "", IsPaid: false, Total: 6300.00, Currency: ronCurrency},
+		{UniqueCode: "inv-008", SerialCode: "ACME-2025-008", ClientName: "ByteForge Studios", IssueDate: fmt.Sprintf("%d-01-28", time.Now().Year()), PaymentDate: fmt.Sprintf("%d-02-01", time.Now().Year()), IsPaid: true, Total: 31500.00, Currency: ronCurrency},
 	}
 
 	total := len(items)

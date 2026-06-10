@@ -49,6 +49,8 @@ func (m Model) View() string {
 			b.WriteString(m.renderEFactura())
 		case TabTaxes:
 			b.WriteString(m.renderTaxesViewport())
+		case TabChart:
+			b.WriteString(m.renderChart())
 		}
 	}
 
@@ -59,7 +61,7 @@ func (m Model) View() string {
 		helpText = "type to filter live • enter done • esc clear"
 	case m.activeTab == TabQueue:
 		helpText = "←/→ tabs • ↑/↓ navigate • / search • d delete • r refresh • q quit"
-	case m.activeTab == TabDashboard:
+	case m.activeTab == TabDashboard, m.activeTab == TabChart:
 		helpText = "←/→ tabs • [ and ] switch year • r refresh • q quit"
 	case m.activeTab == TabTaxes:
 		helpText = "←/→ tabs • ↑/↓ scroll • [ and ] switch year • r refresh • q quit"
@@ -84,7 +86,7 @@ func (m Model) View() string {
 }
 
 // tabOrder is the display order of the tab bar, shared with click handling
-var tabOrder = []Tab{TabDashboard, TabRevenues, TabExpenses, TabEFactura, TabQueue, TabTaxes}
+var tabOrder = []Tab{TabDashboard, TabRevenues, TabExpenses, TabEFactura, TabQueue, TabTaxes, TabChart}
 
 func (m Model) renderTabs() string {
 	var parts []string

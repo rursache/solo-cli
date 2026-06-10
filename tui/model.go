@@ -21,9 +21,10 @@ const (
 	TabEFactura
 	TabQueue
 	TabTaxes
+	TabChart
 )
 
-const tabCount = 6
+const tabCount = 7
 
 func (t Tab) String() string {
 	switch t {
@@ -39,6 +40,8 @@ func (t Tab) String() string {
 		return "Queue"
 	case TabTaxes:
 		return "Taxes"
+	case TabChart:
+		return "Chart"
 	default:
 		return "Unknown"
 	}

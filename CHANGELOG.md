@@ -1,5 +1,8 @@
 ## [Unreleased]
 
+### Added
+- **Chart tab**: monthly revenue bar chart for the selected year, aggregated in RON from the invoice list (foreign currency invoices use their RON local amount). Switch years with `[` and `]`. Loads the complete invoice list automatically when opened
+
 ### Changed
 - **Quit button moved to the tab bar row**: a `QUIT` button right aligned next to the tabs, in the header as intended. It cannot sit on the very first terminal row because terminals with overlay titlebars swallow clicks there
 

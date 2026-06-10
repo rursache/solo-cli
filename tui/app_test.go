@@ -559,6 +559,56 @@ func TestDashboardShowsCompanyDetails(t *testing.T) {
 	}
 }
 
+// The Chart tab aggregates invoices of the displayed year by month in RON
+func TestChartTab(t *testing.T) {
+	m := NewDemoModel()
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	m = updated.(Model)
+	m.activeTab = TabChart
+
+	// Demo data: all invoices in January/February of the current year
+	view := m.View()
+	if !strings.Contains(view, "Monthly Revenues") {
+		t.Fatal("chart title missing")
+	}
+	for _, label := range []string{"Ian", "Feb", "Dec"} {
+		if !strings.Contains(view, label) {
+			t.Errorf("month row %s missing", label)
+		}
+	}
+	if !strings.Contains(view, "█") {
+		t.Error("no bars rendered for months with revenue")
+	}
+	if !strings.Contains(view, "Total: ") {
+		t.Error("total line missing")
+	}
+
+	// Aggregation math: foreign currency uses the local RON amount
+	year := m.summary.Year
+	m.revenues.Items = m.revenues.Items[:0]
+	local := client.LocalAmount{Total: 5000}
+	m.revenues.Items = append(m.revenues.Items,
+		client.Revenue{IssueDate: fmt.Sprintf("%d-03-10T00:00:00+02:00", year), Total: 1000, InvoiceLocalAmount: &local},
+		client.Revenue{IssueDate: fmt.Sprintf("%d-03-20", year), Total: 200},
+		client.Revenue{IssueDate: fmt.Sprintf("%d-03-20", year-1), Total: 99999}, // other year, excluded
+	)
+	months := m.monthlyRevenues(year)
+	if months[2] != 5200 {
+		t.Errorf("March total = %.2f, want 5200 (local RON amount + plain total)", months[2])
+	}
+	for i, v := range months {
+		if i != 2 && v != 0 {
+			t.Errorf("month %d has %f, want 0", i+1, v)
+		}
+	}
+
+	// A year with no invoices renders the empty notice, not a broken chart
+	m.year = year - 5
+	if view := m.View(); !strings.Contains(view, fmt.Sprintf("No invoices issued in %d", year-5)) {
+		t.Error("empty year notice missing")
+	}
+}
+
 // The CAEN principal line marquees on the dashboard when it overflows
 func TestDashboardCAENMarquees(t *testing.T) {
 	m := NewDemoModel()

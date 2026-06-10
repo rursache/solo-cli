@@ -220,6 +220,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.revenues.TotalResults = msg.TotalResults
 		}
 		m.fetchingMore = false
+		// Keep loading until complete while the chart is visible
+		if m.activeTab == TabChart {
+			return m, m.fetchRestOfRevenues()
+		}
 
 	case expensesPageMsg:
 		if m.expenses != nil && msg != nil {
@@ -287,7 +291,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // canSwitchYear limits [ and ] to the year-scoped tabs. Demo mode has no
 // API to refetch from and the bound is unknown until the first summary
 func (m Model) canSwitchYear() bool {
-	return (m.activeTab == TabDashboard || m.activeTab == TabTaxes) && !m.demoMode && m.year > 0
+	switch m.activeTab {
+	case TabDashboard, TabTaxes, TabChart:
+		return !m.demoMode && m.year > 0
+	}
+	return false
 }
 
 // isListTab reports whether the active tab shows a navigable list
@@ -314,6 +322,10 @@ func (m *Model) setTab(t Tab) tea.Cmd {
 	m.searchQuery = ""
 	if hadQuery && !m.demoMode {
 		return m.fetchAll()
+	}
+	if t == TabChart {
+		// The chart aggregates the complete invoice list
+		return m.fetchRestOfRevenues()
 	}
 	return nil
 }

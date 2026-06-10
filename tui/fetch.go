@@ -132,6 +132,29 @@ func (m Model) loadedAndTotal() (int, int) {
 	return loaded, loaded
 }
 
+// fetchRestOfRevenues loads the next revenue page unconditionally. The
+// Chart tab needs the complete invoice list to aggregate by month, so it
+// chains this until everything is loaded
+func (m *Model) fetchRestOfRevenues() tea.Cmd {
+	if m.demoMode || m.fetchingMore || m.revenues == nil || m.revenues.TotalResults == nil {
+		return nil
+	}
+	loaded := len(m.revenues.Items)
+	if loaded >= *m.revenues.TotalResults {
+		return nil
+	}
+	m.fetchingMore = true
+
+	offset, pageSize, c := loaded, m.pageSize, m.client
+	return func() tea.Msg {
+		resp, err := c.ListRevenues(offset, pageSize, "")
+		if err != nil {
+			return errMsg(err)
+		}
+		return revenuesPageMsg(resp)
+	}
+}
+
 // maybeFetchMore starts a next-page fetch when the cursor gets within one
 // viewport of the end of the loaded items and the server has more
 func (m *Model) maybeFetchMore() tea.Cmd {
