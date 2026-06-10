@@ -70,7 +70,8 @@ func TestViewportAdaptsToHeight(t *testing.T) {
 		updated, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: height})
 		m = updated.(Model)
 
-		want := height - 13
+		// bodyHeight (height - 7) minus the list chrome (showing + header)
+		want := height - 11
 		if want < 3 {
 			want = 3
 		}

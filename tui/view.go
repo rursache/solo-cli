@@ -115,6 +115,18 @@ func (m Model) tabViewportSize() int {
 	return size
 }
 
+// bodyHeight returns the rows available for tab content between the
+// title/tab chrome (5 lines) and the pinned help footer (2 lines, after
+// one padding row). Every tab derives its viewport from this so resize
+// behavior stays identical across tabs
+func (m Model) bodyHeight() int {
+	h := m.height - 7
+	if h < 5 {
+		h = 5
+	}
+	return h
+}
+
 // fillWidth returns the space left for a table's fill column given the
 // total width used by its fixed columns (including separators)
 func (m Model) fillWidth(used, minWidth int) int {

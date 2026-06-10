@@ -63,10 +63,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "down", "j":
 			if m.activeTab == TabTaxes {
 				// Must match the viewport math in renderTaxesViewport
-				availHeight := m.height - 8
-				if availHeight < 5 {
-					availHeight = 5
-				}
+				availHeight := m.bodyHeight() - 1
 				maxScroll := m.taxesLines - availHeight
 				if maxScroll < 0 {
 					maxScroll = 0
@@ -101,10 +98,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		// Fit the list viewport to the terminal height. Chrome around the
-		// list: title block (3), tabs (2), showing line (2), table header
-		// with border (2), help footer (4)
-		m.viewportSize = m.height - 13
+		// Fit the list viewport to the body: showing line (2) and table
+		// header with border (2) are the list's own chrome
+		m.viewportSize = m.bodyHeight() - 4
 		if m.viewportSize < 3 {
 			m.viewportSize = 3
 		}
