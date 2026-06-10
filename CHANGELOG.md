@@ -1,10 +1,12 @@
 ## [Unreleased]
 
 ### Changed
+- **TUI tables use the full terminal width**: the last column of every tab (Client, Supplier, Party, Document) now stretches to fill the available space instead of truncating at a fixed width, and the selection highlight spans the full row. Queue tab columns reordered to `Days, Status, Document` so the filename is the one that flexes. Column widths tightened (Curr 5→4, queue Days 8→5) and Category widened (25→30)
 - **TUI Expenses tab**: removed the `Ded` column (every expense that reaches this list is deductible), currency codes are now uppercase to match the other tabs and the amount column is left aligned
 - **TUI Revenues tab**: removed the `Paid` column and currency codes are now uppercase for consistency
 
 ### Fixed
+- **TUI text truncation is now UTF-8 safe**: long names with Romanian diacritics could previously be cut mid-character, producing garbled output
 - **Correct salariu minim brut for 2026 plafoane**: default `salariu_minim_brut` changed from 4325 to 4050 RON. The Codul Fiscal pegs CAS/CASS thresholds to the SMB in effect on January 1 of the income year and explicitly ignores mid-year raises, so the July 2026 raise to 4325 RON does not apply to 2026 income. With the old value, bracket detection was optimistic: the 12 salarii CAS threshold appeared at 51900 RON instead of the correct 48600 RON, under-warning users close to owing CAS. **Existing users**: update `salariu_minim_brut` to `4050` in `~/.config/solo-cli/taxes.json` (or delete the file to regenerate it), since it is not migrated automatically
 
 ## [1.5.1]

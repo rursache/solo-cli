@@ -477,7 +477,10 @@ func (m Model) renderRevenues() string {
 	b.WriteString(SummaryLabelStyle.Render(fmt.Sprintf("Showing %d-%d of %d", m.viewportOffset+1, min(m.viewportOffset+m.viewportSize, total), total)))
 	b.WriteString("\n\n")
 
-	b.WriteString(TableHeaderStyle.Render(fmt.Sprintf("%-18s %12s %-5s %s", "Invoice", "Amount", "Curr", "Client")))
+	// Fixed columns: Invoice(18) + Amount(12) + Curr(4) + separators
+	clientWidth := m.fillWidth(37, 20)
+
+	b.WriteString(TableHeaderStyle.Render(fmt.Sprintf("%-18s %12s %-4s %s", "Invoice", "Amount", "Curr", padTruncate("Client", clientWidth))))
 	b.WriteString("\n")
 
 	// Calculate visible range
@@ -486,17 +489,11 @@ func (m Model) renderRevenues() string {
 	for i := m.viewportOffset; i < endIdx; i++ {
 		r := m.revenues.Items[i]
 
-		// Truncate client name
-		clientName := r.ClientName
-		if len(clientName) > 30 {
-			clientName = clientName[:27] + "..."
-		}
-
-		row := fmt.Sprintf("%-18s %12.2f %-5s %s",
+		row := fmt.Sprintf("%-18s %12.2f %-4s %s",
 			truncate(r.SerialCode, 18),
 			r.Total,
 			strings.ToUpper(r.Currency.ShortName),
-			clientName,
+			padTruncate(r.ClientName, clientWidth),
 		)
 
 		if i == m.cursor {
@@ -536,7 +533,10 @@ func (m Model) renderExpenses() string {
 	b.WriteString(SummaryLabelStyle.Render(fmt.Sprintf("Showing %d-%d of %d", m.viewportOffset+1, min(m.viewportOffset+m.viewportSize, total), total)))
 	b.WriteString("\n\n")
 
-	b.WriteString(TableHeaderStyle.Render(fmt.Sprintf("%-12s %-5s %-25s %s", "Amount", "Curr", "Category", "Supplier")))
+	// Fixed columns: Amount(12) + Curr(4) + Category(30) + separators
+	supplierWidth := m.fillWidth(49, 20)
+
+	b.WriteString(TableHeaderStyle.Render(fmt.Sprintf("%-12s %-4s %-30s %s", "Amount", "Curr", "Category", padTruncate("Supplier", supplierWidth))))
 	b.WriteString("\n")
 
 	endIdx := min(m.viewportOffset+m.viewportSize, total)
@@ -544,14 +544,11 @@ func (m Model) renderExpenses() string {
 	for i := m.viewportOffset; i < endIdx; i++ {
 		e := m.expenses.Items[i]
 
-		category := truncate(e.Category, 25)
-		supplier := truncate(e.SupplierName, 25)
-
-		row := fmt.Sprintf("%-12.2f %-5s %-25s %s",
+		row := fmt.Sprintf("%-12.2f %-4s %-30s %s",
 			e.Total,
 			strings.ToUpper(e.Currency.ShortName),
-			category,
-			supplier,
+			truncate(e.Category, 30),
+			padTruncate(e.SupplierName, supplierWidth),
 		)
 
 		if i == m.cursor {
@@ -576,7 +573,11 @@ func (m Model) renderQueue() string {
 	b.WriteString(SummaryLabelStyle.Render(fmt.Sprintf("Showing %d-%d of %d", m.viewportOffset+1, min(m.viewportOffset+m.viewportSize, total), total)))
 	b.WriteString("\n\n")
 
-	b.WriteString(TableHeaderStyle.Render(fmt.Sprintf("%-30s %8s %s", "Document", "Days", "Status")))
+	// Fixed columns: Days(5) + Status(8) + separators. Document goes last so
+	// the long filename is the column that fills the remaining width
+	documentWidth := m.fillWidth(15, 20)
+
+	b.WriteString(TableHeaderStyle.Render(fmt.Sprintf("%5s %-8s %s", "Days", "Status", padTruncate("Document", documentWidth))))
 	b.WriteString("\n")
 
 	endIdx := min(m.viewportOffset+m.viewportSize, total)
@@ -588,10 +589,10 @@ func (m Model) renderQueue() string {
 			status = "OVERDUE"
 		}
 
-		row := fmt.Sprintf("%-30s %8d %s",
-			truncate(q.DocumentName, 30),
+		row := fmt.Sprintf("%5d %-8s %s",
 			q.DaysPassed,
 			status,
+			padTruncate(q.DocumentName, documentWidth),
 		)
 
 		if i == m.cursor {
@@ -659,12 +660,34 @@ func (m Model) fetchQueue() tea.Msg {
 	return queueMsg(queue)
 }
 
-// Helper
+// Helper, rune-safe so diacritics are not split mid-character
 func truncate(s string, max int) string {
-	if len(s) <= max {
+	r := []rune(s)
+	if len(r) <= max {
 		return s
 	}
-	return s[:max-3] + "..."
+	return string(r[:max-3]) + "..."
+}
+
+// padTruncate fits s to exactly width runes, truncating or padding with
+// spaces. Used for fill columns so the row (and selection highlight)
+// spans the full terminal width
+func padTruncate(s string, width int) string {
+	r := []rune(s)
+	if len(r) > width {
+		return truncate(s, width)
+	}
+	return s + strings.Repeat(" ", width-len(r))
+}
+
+// fillWidth returns the space left for a table's fill column given the
+// total width used by its fixed columns (including separators)
+func (m Model) fillWidth(used, minWidth int) int {
+	avail := m.width - used - 1
+	if avail < minWidth {
+		return minWidth
+	}
+	return avail
 }
 
 // renderThresholdHint shows a "buffer to next" line if still in the lowest
@@ -729,19 +752,22 @@ func (m Model) renderEFactura() string {
 	b.WriteString(SummaryLabelStyle.Render(fmt.Sprintf("Showing %d-%d of %d", m.viewportOffset+1, min(m.viewportOffset+m.viewportSize, total), total)))
 	b.WriteString("\n\n")
 
-	b.WriteString(TableHeaderStyle.Render(fmt.Sprintf("%-20s %12s %-5s %-12s %s", "Serial", "Amount", "Curr", "Date", "Party")))
+	// Fixed columns: Serial(20) + Amount(12) + Curr(4) + Date(12) + separators
+	partyWidth := m.fillWidth(52, 20)
+
+	b.WriteString(TableHeaderStyle.Render(fmt.Sprintf("%-20s %12s %-4s %-12s %s", "Serial", "Amount", "Curr", "Date", padTruncate("Party", partyWidth))))
 	b.WriteString("\n")
 
 	endIdx := min(m.viewportOffset+m.viewportSize, total)
 
 	for i := m.viewportOffset; i < endIdx; i++ {
 		e := m.efactura.Items[i]
-		row := fmt.Sprintf("%-20s %12.2f %-5s %-12s %s",
+		row := fmt.Sprintf("%-20s %12.2f %-4s %-12s %s",
 			truncate(e.SerialCode, 20),
 			e.TotalAmount,
-			e.CurrencyCode,
+			strings.ToUpper(e.CurrencyCode),
 			e.InvoiceDate,
-			truncate(e.PartyName, 25),
+			padTruncate(e.PartyName, partyWidth),
 		)
 
 		if i == m.cursor {
