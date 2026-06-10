@@ -38,8 +38,17 @@ func (m Model) fetchCAEN() tea.Msg {
 	return caenMsg(codes)
 }
 
+// searchFor returns the active search query when tab is the searched tab.
+// The query only ever applies to the tab it was typed on
+func (m Model) searchFor(tab Tab) string {
+	if m.activeTab == tab {
+		return m.searchQuery
+	}
+	return ""
+}
+
 func (m Model) fetchRevenues() tea.Msg {
-	revenues, err := m.client.ListRevenues(m.revenueOffset, m.pageSize)
+	revenues, err := m.client.ListRevenues(m.revenueOffset, m.pageSize, m.searchFor(TabRevenues))
 	if err != nil {
 		return errMsg(err)
 	}
@@ -47,7 +56,7 @@ func (m Model) fetchRevenues() tea.Msg {
 }
 
 func (m Model) fetchExpenses() tea.Msg {
-	expenses, err := m.client.ListExpenses(m.expenseOffset, m.pageSize)
+	expenses, err := m.client.ListExpenses(m.expenseOffset, m.pageSize, m.searchFor(TabExpenses))
 	if err != nil {
 		return errMsg(err)
 	}
@@ -64,7 +73,7 @@ func (m Model) fetchRejected() tea.Msg {
 }
 
 func (m Model) fetchQueue() tea.Msg {
-	queue, err := m.client.ListQueuedExpenses(m.queueOffset, m.pageSize)
+	queue, err := m.client.ListQueuedExpenses(m.queueOffset, m.pageSize, m.searchFor(TabQueue))
 	if err != nil {
 		return errMsg(err)
 	}
@@ -72,11 +81,26 @@ func (m Model) fetchQueue() tea.Msg {
 }
 
 func (m Model) fetchEFactura() tea.Msg {
-	efactura, err := m.client.ListEFactura(0, m.pageSize)
+	efactura, err := m.client.ListEFactura(0, m.pageSize, m.searchFor(TabEFactura))
 	if err != nil {
 		return errMsg(err)
 	}
 	return efacturaMsg(efactura)
+}
+
+// fetchActiveList returns the fetch command for the active list tab
+func (m Model) fetchActiveList() tea.Cmd {
+	switch m.activeTab {
+	case TabRevenues:
+		return m.fetchRevenues
+	case TabExpenses:
+		return m.fetchExpenses
+	case TabEFactura:
+		return m.fetchEFactura
+	case TabQueue:
+		return m.fetchQueue
+	}
+	return nil
 }
 
 func (m Model) deleteSelectedExpense() tea.Cmd {

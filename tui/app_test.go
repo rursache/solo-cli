@@ -214,6 +214,78 @@ func TestSummarySetsYearBounds(t *testing.T) {
 	}
 }
 
+// The / search captures typing (q must not quit), applies on enter with a
+// refetch and clears on esc
+func TestSearchFlow(t *testing.T) {
+	m := NewDemoModel()
+	m.demoMode = false
+	m.activeTab = TabRevenues
+
+	updated, _ := m.Update(keyMsg("/"))
+	m = updated.(Model)
+	if !m.searching {
+		t.Fatal("/ must enter search mode")
+	}
+
+	// Typing accumulates, including letters that are normally hotkeys
+	for _, ch := range []string{"a", "q", "h"} {
+		updated, cmd := m.Update(keyMsg(ch))
+		m = updated.(Model)
+		if cmd != nil {
+			t.Fatalf("typing %q in search mode must not trigger commands", ch)
+		}
+	}
+	if m.searchInput != "aqh" {
+		t.Fatalf("searchInput = %q, want aqh", m.searchInput)
+	}
+	if m.activeTab != TabRevenues {
+		t.Fatal("typing h in search mode must not switch tabs")
+	}
+
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyBackspace})
+	m = updated.(Model)
+	if m.searchInput != "aq" {
+		t.Errorf("after backspace: %q, want aq", m.searchInput)
+	}
+
+	// The input is visible in the rendered view
+	if view := m.View(); !strings.Contains(view, "Search: ") || !strings.Contains(view, "aq█") {
+		t.Error("search input not rendered")
+	}
+
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updated.(Model)
+	if m.searching || m.searchQuery != "aq" {
+		t.Fatalf("after enter: searching=%v query=%q, want applied aq", m.searching, m.searchQuery)
+	}
+	if cmd == nil {
+		t.Fatal("applying a search must refetch the active list")
+	}
+	if view := m.View(); !strings.Contains(view, "filter: aq") {
+		t.Error("active filter not shown in status line")
+	}
+
+	// Esc clears the applied filter and refetches
+	updated, cmd = m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	m = updated.(Model)
+	if m.searchQuery != "" || cmd == nil {
+		t.Errorf("esc must clear the filter and refetch (query %q)", m.searchQuery)
+	}
+
+	// Switching tabs clears any applied search
+	updated, _ = m.Update(keyMsg("/"))
+	m = updated.(Model)
+	updated, _ = m.Update(keyMsg("x"))
+	m = updated.(Model)
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updated.(Model)
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyTab})
+	m = updated.(Model)
+	if m.searchQuery != "" {
+		t.Errorf("tab switch must clear the search query, got %q", m.searchQuery)
+	}
+}
+
 // The dashboard must surface the company address, CAEN codes and net income
 func TestDashboardShowsCompanyDetails(t *testing.T) {
 	m := NewDemoModel()

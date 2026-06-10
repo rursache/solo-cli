@@ -18,10 +18,11 @@ type EFacturaListResponse struct {
 	TotalResults *int       `json:"TotalResults"`
 }
 
-// ListEFactura fetches the list of e-invoices from the national system
-func (c *Client) ListEFactura(startIndex, maxResults int) (*EFacturaListResponse, error) {
+// ListEFactura fetches the list of e-invoices from the national system,
+// optionally filtered by a server-side search query
+func (c *Client) ListEFactura(startIndex, maxResults int, search string) (*EFacturaListResponse, error) {
 	var result EFacturaListResponse
-	if err := c.doJSON("POST", "/proxy/accounting/e-invoice/list-expenses", "/e-factura", newListRequest(startIndex, maxResults), &result); err != nil {
+	if err := c.doJSON("POST", "/proxy/accounting/e-invoice/list-expenses", "/e-factura", newListRequest(startIndex, maxResults, search), &result); err != nil {
 		return nil, fmt.Errorf("failed to list e-factura: %w", err)
 	}
 	return &result, nil

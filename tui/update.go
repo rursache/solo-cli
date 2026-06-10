@@ -44,13 +44,44 @@ func (m Model) fetchAll() tea.Cmd {
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		// Search input mode captures every key so typing q or h does not
+		// quit or switch tabs
+		if m.searching {
+			switch msg.String() {
+			case "enter":
+				m.searching = false
+				m.searchQuery = strings.TrimSpace(m.searchInput)
+				m.cursor = 0
+				m.viewportOffset = 0
+				m.marqueeOffset = 0
+				return m, m.fetchActiveList()
+			case "esc":
+				m.searching = false
+				m.searchInput = ""
+			case "backspace":
+				if r := []rune(m.searchInput); len(r) > 0 {
+					m.searchInput = string(r[:len(r)-1])
+				}
+			case "ctrl+c":
+				return m, tea.Quit
+			default:
+				if msg.Type == tea.KeyRunes || msg.Type == tea.KeySpace {
+					m.searchInput += string(msg.Runes)
+					if msg.Type == tea.KeySpace {
+						m.searchInput += " "
+					}
+				}
+			}
+			return m, nil
+		}
+
 		switch msg.String() {
 		case "q", "ctrl+c":
 			return m, tea.Quit
 		case "tab", "right", "l":
-			m.setTab((m.activeTab + 1) % tabCount)
+			return m, m.setTab((m.activeTab + 1) % tabCount)
 		case "shift+tab", "left", "h":
-			m.setTab((m.activeTab - 1 + tabCount) % tabCount)
+			return m, m.setTab((m.activeTab - 1 + tabCount) % tabCount)
 		case "d", "delete", "backspace":
 			if m.activeTab == TabQueue {
 				m.loading = true
@@ -60,6 +91,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.scrollUp()
 		case "down", "j":
 			m.scrollDown()
+		case "/":
+			if m.isListTab() && !m.demoMode {
+				m.searching = true
+				m.searchInput = ""
+			}
+		case "esc":
+			// Clear an applied filter
+			if m.isListTab() && m.searchQuery != "" {
+				m.searchQuery = ""
+				m.cursor = 0
+				m.viewportOffset = 0
+				return m, m.fetchActiveList()
+			}
 		case "[":
 			if m.canSwitchYear() && m.year > 2015 {
 				m.year--
@@ -164,7 +208,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case msg.Button == tea.MouseButtonWheelDown:
 			m.scrollDown()
 		case msg.Button == tea.MouseButtonLeft && msg.Action == tea.MouseActionPress:
-			m.handleClick(msg.X, msg.Y)
+			return m, m.handleClick(msg.X, msg.Y)
 		}
 
 	case marqueeTickMsg:
@@ -186,13 +230,32 @@ func (m Model) canSwitchYear() bool {
 	return (m.activeTab == TabDashboard || m.activeTab == TabTaxes) && !m.demoMode && m.year > 0
 }
 
-// setTab switches the active tab and resets per-tab navigation state
-func (m *Model) setTab(t Tab) {
+// isListTab reports whether the active tab shows a navigable list
+func (m Model) isListTab() bool {
+	switch m.activeTab {
+	case TabRevenues, TabExpenses, TabEFactura, TabQueue:
+		return true
+	}
+	return false
+}
+
+// setTab switches the active tab and resets per-tab navigation state.
+// An active search belongs to the tab it was typed on, so it is cleared
+// and the list is refetched unfiltered
+func (m *Model) setTab(t Tab) tea.Cmd {
+	hadQuery := m.searchQuery != ""
 	m.activeTab = t
 	m.cursor = 0
 	m.marqueeOffset = 0
 	m.viewportOffset = 0
 	m.taxesScroll = 0
+	m.searching = false
+	m.searchInput = ""
+	m.searchQuery = ""
+	if hadQuery && !m.demoMode {
+		return m.fetchAll()
+	}
+	return nil
 }
 
 func (m *Model) scrollUp() {

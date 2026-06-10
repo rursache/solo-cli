@@ -47,13 +47,15 @@ func (m Model) View() string {
 	}
 
 	// Help, pinned to the bottom row of the terminal
-	helpText := "←/→ tabs • ↑/↓ navigate • r refresh • q quit"
-	switch m.activeTab {
-	case TabQueue:
-		helpText = "←/→ tabs • ↑/↓ navigate • d delete • r refresh • q quit"
-	case TabDashboard:
+	helpText := "←/→ tabs • ↑/↓ navigate • / search • r refresh • q quit"
+	switch {
+	case m.searching:
+		helpText = "type to filter • enter apply • esc cancel"
+	case m.activeTab == TabQueue:
+		helpText = "←/→ tabs • ↑/↓ navigate • / search • d delete • r refresh • q quit"
+	case m.activeTab == TabDashboard:
 		helpText = "←/→ tabs • [/] year • r refresh • q quit"
-	case TabTaxes:
+	case m.activeTab == TabTaxes:
 		helpText = "←/→ tabs • ↑/↓ scroll • [/] year • r refresh • q quit"
 	}
 	help := HelpStyle.Render(helpText)
@@ -160,7 +162,7 @@ func (m Model) renderList(total int, header string, row func(i int) string) stri
 	var b strings.Builder
 	size := m.tabViewportSize()
 
-	b.WriteString(SummaryLabelStyle.Render(fmt.Sprintf("Showing %d-%d of %d", m.viewportOffset+1, min(m.viewportOffset+size, total), total)))
+	b.WriteString(m.listStatusLine(fmt.Sprintf("Showing %d-%d of %d", m.viewportOffset+1, min(m.viewportOffset+size, total), total)))
 	b.WriteString("\n\n")
 
 	b.WriteString(TableHeaderStyle.Render(header))
@@ -179,6 +181,28 @@ func (m Model) renderList(total int, header string, row func(i int) string) stri
 	// No trailing newline: with a full viewport it would push the view one
 	// line past the terminal height and clip the title off the top
 	return strings.TrimSuffix(b.String(), "\n")
+}
+
+// listStatusLine renders the line above the table: the search input while
+// typing, the active filter alongside the scroll position, or just the
+// scroll position
+func (m Model) listStatusLine(showing string) string {
+	if m.searching {
+		return SummaryLabelStyle.Render("Search: ") + TableRowStyle.Render(m.searchInput+"█")
+	}
+	if m.searchQuery != "" {
+		return SummaryLabelStyle.Render(showing+" • filter: ") + TableRowStyle.Render(m.searchQuery)
+	}
+	return SummaryLabelStyle.Render(showing)
+}
+
+// emptyList renders the empty state, keeping the search input and filter
+// visible so a query without matches can still be edited or cleared
+func (m Model) emptyList(message string) string {
+	if m.searching || m.searchQuery != "" {
+		return m.listStatusLine("No results") + "\n\n" + message + " (esc to clear the filter)"
+	}
+	return message
 }
 
 // bodyHeight returns the rows available for tab content between the

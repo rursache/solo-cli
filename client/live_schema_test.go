@@ -59,7 +59,7 @@ type rawItems struct {
 func fetchRawList(t *testing.T, c *Client, path, referer string) []json.RawMessage {
 	t.Helper()
 	var raw json.RawMessage
-	if err := c.doJSON("POST", path, referer, newListRequest(0, 3), &raw); err != nil {
+	if err := c.doJSON("POST", path, referer, newListRequest(0, 3, ""), &raw); err != nil {
 		t.Fatalf("fetching %s: %v", path, err)
 	}
 	var list rawItems
@@ -235,7 +235,7 @@ func TestLiveCountsSchemaAndConsistency(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetExpenseCounts: %v", err)
 	}
-	queue, err := c.ListQueuedExpenses(0, 100)
+	queue, err := c.ListQueuedExpenses(0, 100, "")
 	if err != nil {
 		t.Fatalf("ListQueuedExpenses: %v", err)
 	}

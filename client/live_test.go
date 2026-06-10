@@ -65,19 +65,19 @@ func TestLiveSummary(t *testing.T) {
 func TestLiveListEndpoints(t *testing.T) {
 	c := liveClient(t)
 
-	if resp, err := c.ListRevenues(0, 5); err != nil {
+	if resp, err := c.ListRevenues(0, 5, ""); err != nil {
 		t.Errorf("ListRevenues: %v", err)
 	} else {
 		t.Logf("revenues: %d items", len(resp.Items))
 	}
 
-	if resp, err := c.ListExpenses(0, 5); err != nil {
+	if resp, err := c.ListExpenses(0, 5, ""); err != nil {
 		t.Errorf("ListExpenses: %v", err)
 	} else {
 		t.Logf("expenses: %d items", len(resp.Items))
 	}
 
-	if resp, err := c.ListQueuedExpenses(0, 5); err != nil {
+	if resp, err := c.ListQueuedExpenses(0, 5, ""); err != nil {
 		t.Errorf("ListQueuedExpenses: %v", err)
 	} else {
 		t.Logf("queue: %d items", len(resp.Items))
@@ -89,10 +89,32 @@ func TestLiveListEndpoints(t *testing.T) {
 		t.Logf("rejected: %d items", len(resp.Items))
 	}
 
-	if resp, err := c.ListEFactura(0, 5); err != nil {
+	if resp, err := c.ListEFactura(0, 5, ""); err != nil {
 		t.Errorf("ListEFactura: %v", err)
 	} else {
 		t.Logf("efactura: %d items", len(resp.Items))
+	}
+}
+
+// The server must actually honor SearchText, otherwise the TUI search
+// would silently show unfiltered results
+func TestLiveSearchFilters(t *testing.T) {
+	c := liveClient(t)
+
+	all, err := c.ListRevenues(0, 5, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(all.Items) == 0 {
+		t.Skip("no revenues to search against")
+	}
+
+	none, err := c.ListRevenues(0, 5, "zzxqjwy-no-such-client")
+	if err != nil {
+		t.Fatalf("search query broke the request: %v", err)
+	}
+	if len(none.Items) != 0 {
+		t.Errorf("nonsense query returned %d items, server ignores SearchText?", len(none.Items))
 	}
 }
 

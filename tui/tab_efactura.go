@@ -7,7 +7,7 @@ import (
 
 func (m Model) renderEFactura() string {
 	if m.efactura == nil || len(m.efactura.Items) == 0 {
-		return "No e-Factura documents found"
+		return m.emptyList("No e-Factura documents found")
 	}
 
 	// Fixed columns: Serial(20) + Amount(12) + Curr(4) + Date(12) + separators

@@ -17,8 +17,8 @@ type listRequest struct {
 	SortAsc    bool   `json:"SortAsc"`
 }
 
-func newListRequest(startIndex, maxResults int) listRequest {
-	return listRequest{StartIndex: startIndex, MaxResults: maxResults, SortAsc: true}
+func newListRequest(startIndex, maxResults int, search string) listRequest {
+	return listRequest{SearchText: search, StartIndex: startIndex, MaxResults: maxResults, SortAsc: true}
 }
 
 // doJSON performs an API request with the browser-mimicking headers SOLO.ro

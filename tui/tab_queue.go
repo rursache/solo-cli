@@ -4,7 +4,7 @@ import "fmt"
 
 func (m Model) renderQueue() string {
 	if m.queue == nil || len(m.queue.Items) == 0 {
-		return "No documents in queue"
+		return m.emptyList("No documents in queue")
 	}
 
 	// Fixed columns: Days(5) + Status(8) + separators. Document goes last so

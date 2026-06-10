@@ -99,12 +99,15 @@ func TestListRevenues(t *testing.T) {
 		if req.StartIndex != 0 || req.MaxResults != 10 {
 			t.Errorf("pagination not sent: %+v", req)
 		}
+		if req.SearchText != "acme" {
+			t.Errorf("SearchText = %q, want acme", req.SearchText)
+		}
 		json.NewEncoder(w).Encode(RevenueListResponse{Items: []Revenue{
 			{SerialCode: "INV-001", ClientName: "ACME", Total: 1000, IsPaid: true},
 		}})
 	}))
 
-	resp, err := c.ListRevenues(0, 10)
+	resp, err := c.ListRevenues(0, 10, "acme")
 	if err != nil {
 		t.Fatalf("ListRevenues: %v", err)
 	}
@@ -133,11 +136,11 @@ func TestListExpensesAndQueueAndRejected(t *testing.T) {
 		}
 	}))
 
-	expenses, err := c.ListExpenses(0, 10)
+	expenses, err := c.ListExpenses(0, 10, "")
 	if err != nil || len(expenses.Items) != 1 {
 		t.Errorf("ListExpenses: %v, items %d", err, len(expenses.Items))
 	}
-	queue, err := c.ListQueuedExpenses(0, 10)
+	queue, err := c.ListQueuedExpenses(0, 10, "")
 	if err != nil || len(queue.Items) != 1 || queue.Items[0].Id != 42 {
 		t.Errorf("ListQueuedExpenses: %v, %+v", err, queue)
 	}
@@ -169,7 +172,7 @@ func TestListEFactura(t *testing.T) {
 		}})
 	}))
 
-	resp, err := c.ListEFactura(0, 10)
+	resp, err := c.ListEFactura(0, 10, "")
 	if err != nil || len(resp.Items) != 1 {
 		t.Fatalf("ListEFactura: %v, %+v", err, resp)
 	}

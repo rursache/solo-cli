@@ -65,14 +65,15 @@ type RevenueCounts struct {
 	RejectedRevenues   int `json:"RejectedRevenues"`
 }
 
-// ListRevenues fetches the list of revenues/invoices
-func (c *Client) ListRevenues(startIndex, maxResults int) (*RevenueListResponse, error) {
+// ListRevenues fetches the list of revenues/invoices, optionally filtered
+// by a server-side search query
+func (c *Client) ListRevenues(startIndex, maxResults int, search string) (*RevenueListResponse, error) {
 	reqBody := struct {
 		listRequest
 		InvoiceStatus           int `json:"InvoiceStatus"`
 		ElectronicInvoiceStatus int `json:"ElectronicInvoiceStatus"`
 	}{
-		listRequest:   newListRequest(startIndex, maxResults),
+		listRequest:   newListRequest(startIndex, maxResults, search),
 		InvoiceStatus: 1,
 	}
 

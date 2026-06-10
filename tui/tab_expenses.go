@@ -22,7 +22,7 @@ func (m Model) renderExpenses() string {
 	}
 
 	if m.expenses == nil || len(m.expenses.Items) == 0 {
-		b.WriteString("No expenses found")
+		b.WriteString(m.emptyList("No expenses found"))
 		return b.String()
 	}
 

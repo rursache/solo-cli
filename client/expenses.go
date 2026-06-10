@@ -75,10 +75,11 @@ type RejectedExpenseResponse struct {
 	TotalResults *int              `json:"TotalResults"`
 }
 
-// ListExpenses fetches the list of expenses
-func (c *Client) ListExpenses(startIndex, maxResults int) (*ExpenseListResponse, error) {
+// ListExpenses fetches the list of expenses, optionally filtered by a
+// server-side search query
+func (c *Client) ListExpenses(startIndex, maxResults int, search string) (*ExpenseListResponse, error) {
 	var result ExpenseListResponse
-	if err := c.doJSON("POST", "/proxy/accounting/expenses/list", "/expenses", newListRequest(startIndex, maxResults), &result); err != nil {
+	if err := c.doJSON("POST", "/proxy/accounting/expenses/list", "/expenses", newListRequest(startIndex, maxResults, search), &result); err != nil {
 		return nil, fmt.Errorf("failed to list expenses: %w", err)
 	}
 	return &result, nil
@@ -98,10 +99,11 @@ func (c *Client) GetExpenseCounts(year int) (*ExpenseCounts, error) {
 	return &result, nil
 }
 
-// ListQueuedExpenses fetches documents pending processing
-func (c *Client) ListQueuedExpenses(startIndex, maxResults int) (*QueuedExpenseResponse, error) {
+// ListQueuedExpenses fetches documents pending processing, optionally
+// filtered by a server-side search query
+func (c *Client) ListQueuedExpenses(startIndex, maxResults int, search string) (*QueuedExpenseResponse, error) {
 	var result QueuedExpenseResponse
-	if err := c.doJSON("POST", "/proxy/accounting/expenses/queued", "/expenses", newListRequest(startIndex, maxResults), &result); err != nil {
+	if err := c.doJSON("POST", "/proxy/accounting/expenses/queued", "/expenses", newListRequest(startIndex, maxResults, search), &result); err != nil {
 		return nil, fmt.Errorf("failed to list queued expenses: %w", err)
 	}
 	return &result, nil
@@ -110,7 +112,7 @@ func (c *Client) ListQueuedExpenses(startIndex, maxResults int) (*QueuedExpenseR
 // ListRejectedExpenses fetches expenses that were rejected
 func (c *Client) ListRejectedExpenses(startIndex, maxResults int) (*RejectedExpenseResponse, error) {
 	var result RejectedExpenseResponse
-	if err := c.doJSON("POST", "/proxy/accounting/expenses/rejected", "/expenses", newListRequest(startIndex, maxResults), &result); err != nil {
+	if err := c.doJSON("POST", "/proxy/accounting/expenses/rejected", "/expenses", newListRequest(startIndex, maxResults, ""), &result); err != nil {
 		return nil, fmt.Errorf("failed to list rejected expenses: %w", err)
 	}
 	return &result, nil

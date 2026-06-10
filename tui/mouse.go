@@ -1,6 +1,9 @@
 package tui
 
-import "github.com/charmbracelet/lipgloss"
+import (
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+)
 
 const (
 	// tabsRowY is the screen row of the tab bar: title line, its margin and
@@ -11,16 +14,16 @@ const (
 	listRowsStartY = 9
 )
 
-func (m *Model) handleClick(x, y int) {
+func (m *Model) handleClick(x, y int) tea.Cmd {
 	if y == tabsRowY {
-		m.clickTab(x)
-		return
+		return m.clickTab(x)
 	}
 	m.clickRow(y)
+	return nil
 }
 
 // clickTab hit-tests x against the rendered tab cells
-func (m *Model) clickTab(x int) {
+func (m *Model) clickTab(x int) tea.Cmd {
 	pos := 0
 	for _, tab := range tabOrder {
 		style := InactiveTabStyle
@@ -30,12 +33,13 @@ func (m *Model) clickTab(x int) {
 		w := lipgloss.Width(style.Render(tab.String()))
 		if x >= pos && x < pos+w {
 			if tab != m.activeTab {
-				m.setTab(tab)
+				return m.setTab(tab)
 			}
-			return
+			return nil
 		}
 		pos += w
 	}
+	return nil
 }
 
 // clickRow moves the cursor to the clicked table row on list tabs

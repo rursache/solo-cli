@@ -7,7 +7,7 @@ import (
 
 func (m Model) renderRevenues() string {
 	if m.revenues == nil || len(m.revenues.Items) == 0 {
-		return "No revenues found"
+		return m.emptyList("No revenues found")
 	}
 
 	// Fixed columns: Invoice(18) + Amount(12) + Curr(4) + separators

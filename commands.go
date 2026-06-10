@@ -38,7 +38,7 @@ func runSummary(c *client.Client, args []string) {
 }
 
 func runRevenues(c *client.Client) {
-	revenues, err := c.ListRevenues(0, 100)
+	revenues, err := c.ListRevenues(0, 100, "")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
@@ -63,7 +63,7 @@ func runExpenses(c *client.Client) {
 		fmt.Fprintln(os.Stderr)
 	}
 
-	expenses, err := c.ListExpenses(0, 100)
+	expenses, err := c.ListExpenses(0, 100, "")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
@@ -99,7 +99,7 @@ func runQueue(c *client.Client, args []string) {
 		}
 	}
 
-	queue, err := c.ListQueuedExpenses(0, 100)
+	queue, err := c.ListQueuedExpenses(0, 100, "")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
@@ -114,7 +114,7 @@ func runQueue(c *client.Client, args []string) {
 }
 
 func runEFactura(c *client.Client) {
-	efactura, err := c.ListEFactura(0, 100)
+	efactura, err := c.ListEFactura(0, 100, "")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
