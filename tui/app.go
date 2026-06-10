@@ -541,25 +541,20 @@ func (m Model) renderExpenses() string {
 	b.WriteString(SummaryLabelStyle.Render(fmt.Sprintf("Showing %d-%d of %d", m.viewportOffset+1, min(m.viewportOffset+m.viewportSize, total), total)))
 	b.WriteString("\n\n")
 
-	b.WriteString(TableHeaderStyle.Render(fmt.Sprintf("%-3s %12s %-5s %-25s %s", "Ded", "Amount", "Curr", "Category", "Supplier")))
+	b.WriteString(TableHeaderStyle.Render(fmt.Sprintf("%-12s %-5s %-25s %s", "Amount", "Curr", "Category", "Supplier")))
 	b.WriteString("\n")
 
 	endIdx := min(m.viewportOffset+m.viewportSize, total)
 
 	for i := m.viewportOffset; i < endIdx; i++ {
 		e := m.expenses.Items[i]
-		deductIcon := "✅"
-		if strings.Contains(e.Category, "Nedeductibilă") {
-			deductIcon = "❌"
-		}
 
 		category := truncate(e.Category, 25)
 		supplier := truncate(e.SupplierName, 25)
 
-		row := fmt.Sprintf("%-3s %12.2f %-5s %-25s %s",
-			deductIcon,
+		row := fmt.Sprintf("%-12.2f %-5s %-25s %s",
 			e.Total,
-			e.Currency.ShortName,
+			strings.ToUpper(e.Currency.ShortName),
 			category,
 			supplier,
 		)
