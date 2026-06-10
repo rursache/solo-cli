@@ -215,8 +215,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				maxCursor := m.getMaxCursor()
 				if m.cursor < maxCursor-1 {
 					m.cursor++
-					if m.cursor >= m.viewportOffset+m.viewportSize {
-						m.viewportOffset = m.cursor - m.viewportSize + 1
+					size := m.tabViewportSize()
+					if m.cursor >= m.viewportOffset+size {
+						m.viewportOffset = m.cursor - size + 1
 					}
 				}
 			}
@@ -237,6 +238,26 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+		// Fit the list viewport to the terminal height. Chrome around the
+		// list: title block (3), tabs (2), showing line (2), table header
+		// with border (2), help footer (4)
+		m.viewportSize = m.height - 13
+		if m.viewportSize < 3 {
+			m.viewportSize = 3
+		}
+		// Keep the cursor visible after a resize
+		if m.cursor >= m.viewportOffset+m.viewportSize {
+			m.viewportOffset = m.cursor - m.viewportSize + 1
+		} else if m.viewportOffset > 0 {
+			// Pull the list up if the larger viewport leaves dead space
+			maxOffset := m.getMaxCursor() - m.viewportSize
+			if maxOffset < 0 {
+				maxOffset = 0
+			}
+			if m.viewportOffset > maxOffset {
+				m.viewportOffset = maxOffset
+			}
+		}
 		if m.taxBreakdown != nil && m.taxesLines == 0 {
 			m.taxesLines = len(strings.Split(m.renderTaxes(), "\n"))
 		}
@@ -474,7 +495,7 @@ func (m Model) renderRevenues() string {
 	total := len(m.revenues.Items)
 
 	// Show scroll position indicator
-	b.WriteString(SummaryLabelStyle.Render(fmt.Sprintf("Showing %d-%d of %d", m.viewportOffset+1, min(m.viewportOffset+m.viewportSize, total), total)))
+	b.WriteString(SummaryLabelStyle.Render(fmt.Sprintf("Showing %d-%d of %d", m.viewportOffset+1, min(m.viewportOffset+m.tabViewportSize(), total), total)))
 	b.WriteString("\n\n")
 
 	// Fixed columns: Invoice(18) + Amount(12) + Curr(4) + separators
@@ -484,7 +505,7 @@ func (m Model) renderRevenues() string {
 	b.WriteString("\n")
 
 	// Calculate visible range
-	endIdx := min(m.viewportOffset+m.viewportSize, total)
+	endIdx := min(m.viewportOffset+m.tabViewportSize(), total)
 
 	for i := m.viewportOffset; i < endIdx; i++ {
 		r := m.revenues.Items[i]
@@ -530,7 +551,7 @@ func (m Model) renderExpenses() string {
 
 	total := len(m.expenses.Items)
 
-	b.WriteString(SummaryLabelStyle.Render(fmt.Sprintf("Showing %d-%d of %d", m.viewportOffset+1, min(m.viewportOffset+m.viewportSize, total), total)))
+	b.WriteString(SummaryLabelStyle.Render(fmt.Sprintf("Showing %d-%d of %d", m.viewportOffset+1, min(m.viewportOffset+m.tabViewportSize(), total), total)))
 	b.WriteString("\n\n")
 
 	// Fixed columns: Amount(12) + Curr(4) + Category(30) + separators
@@ -539,7 +560,7 @@ func (m Model) renderExpenses() string {
 	b.WriteString(TableHeaderStyle.Render(fmt.Sprintf("%-12s %-4s %-30s %s", "Amount", "Curr", "Category", padTruncate("Supplier", supplierWidth))))
 	b.WriteString("\n")
 
-	endIdx := min(m.viewportOffset+m.viewportSize, total)
+	endIdx := min(m.viewportOffset+m.tabViewportSize(), total)
 
 	for i := m.viewportOffset; i < endIdx; i++ {
 		e := m.expenses.Items[i]
@@ -570,7 +591,7 @@ func (m Model) renderQueue() string {
 	var b strings.Builder
 	total := len(m.queue.Items)
 
-	b.WriteString(SummaryLabelStyle.Render(fmt.Sprintf("Showing %d-%d of %d", m.viewportOffset+1, min(m.viewportOffset+m.viewportSize, total), total)))
+	b.WriteString(SummaryLabelStyle.Render(fmt.Sprintf("Showing %d-%d of %d", m.viewportOffset+1, min(m.viewportOffset+m.tabViewportSize(), total), total)))
 	b.WriteString("\n\n")
 
 	// Fixed columns: Days(5) + Status(8) + separators. Document goes last so
@@ -580,7 +601,7 @@ func (m Model) renderQueue() string {
 	b.WriteString(TableHeaderStyle.Render(fmt.Sprintf("%5s %-8s %s", "Days", "Status", padTruncate("Document", documentWidth))))
 	b.WriteString("\n")
 
-	endIdx := min(m.viewportOffset+m.viewportSize, total)
+	endIdx := min(m.viewportOffset+m.tabViewportSize(), total)
 
 	for i := m.viewportOffset; i < endIdx; i++ {
 		q := m.queue.Items[i]
@@ -680,6 +701,19 @@ func padTruncate(s string, width int) string {
 	return s + strings.Repeat(" ", width-len(r))
 }
 
+// tabViewportSize returns the visible row count for the active tab. The
+// Expenses tab loses rows to the rejected warning block when present
+func (m Model) tabViewportSize() int {
+	size := m.viewportSize
+	if m.activeTab == TabExpenses && m.rejected != nil && len(m.rejected.Items) > 0 {
+		size -= len(m.rejected.Items) + 2
+	}
+	if size < 1 {
+		return 1
+	}
+	return size
+}
+
 // fillWidth returns the space left for a table's fill column given the
 // total width used by its fixed columns (including separators)
 func (m Model) fillWidth(used, minWidth int) int {
@@ -749,7 +783,7 @@ func (m Model) renderEFactura() string {
 	var b strings.Builder
 	total := len(m.efactura.Items)
 
-	b.WriteString(SummaryLabelStyle.Render(fmt.Sprintf("Showing %d-%d of %d", m.viewportOffset+1, min(m.viewportOffset+m.viewportSize, total), total)))
+	b.WriteString(SummaryLabelStyle.Render(fmt.Sprintf("Showing %d-%d of %d", m.viewportOffset+1, min(m.viewportOffset+m.tabViewportSize(), total), total)))
 	b.WriteString("\n\n")
 
 	// Fixed columns: Serial(20) + Amount(12) + Curr(4) + Date(12) + separators
@@ -758,7 +792,7 @@ func (m Model) renderEFactura() string {
 	b.WriteString(TableHeaderStyle.Render(fmt.Sprintf("%-20s %12s %-4s %-12s %s", "Serial", "Amount", "Curr", "Date", padTruncate("Party", partyWidth))))
 	b.WriteString("\n")
 
-	endIdx := min(m.viewportOffset+m.viewportSize, total)
+	endIdx := min(m.viewportOffset+m.tabViewportSize(), total)
 
 	for i := m.viewportOffset; i < endIdx; i++ {
 		e := m.efactura.Items[i]

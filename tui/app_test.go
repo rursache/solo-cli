@@ -60,6 +60,47 @@ func TestTableRowsFillWidth(t *testing.T) {
 	}
 }
 
+// The list viewport must grow and shrink with the terminal height and the
+// rendered view must never exceed it
+func TestViewportAdaptsToHeight(t *testing.T) {
+	for _, height := range []int{18, 30, 50} {
+		m := NewDemoModel()
+		updated, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: height})
+		m = updated.(Model)
+
+		want := height - 13
+		if want < 3 {
+			want = 3
+		}
+		if m.viewportSize != want {
+			t.Errorf("height %d: viewportSize = %d, want %d", height, m.viewportSize, want)
+		}
+
+		for _, tab := range []Tab{TabRevenues, TabExpenses, TabEFactura, TabQueue} {
+			m.activeTab = tab
+			if lines := len(strings.Split(m.View(), "\n")); lines > height {
+				t.Errorf("height %d, tab %s: view has %d lines, must fit %d", height, tab, lines, height)
+			}
+		}
+	}
+}
+
+// The Expenses tab gives up rows to the rejected warning block
+func TestExpensesViewportShrinksForRejected(t *testing.T) {
+	m := NewDemoModel()
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	m = updated.(Model)
+
+	m.activeTab = TabExpenses
+	if m.rejected == nil || len(m.rejected.Items) == 0 {
+		t.Skip("demo data has no rejected expenses")
+	}
+	want := m.viewportSize - len(m.rejected.Items) - 2
+	if got := m.tabViewportSize(); got != want {
+		t.Errorf("tabViewportSize = %d, want %d", got, want)
+	}
+}
+
 func TestPadTruncate(t *testing.T) {
 	if got := padTruncate("abc", 6); got != "abc   " {
 		t.Errorf("pad: %q", got)
