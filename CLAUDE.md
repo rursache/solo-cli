@@ -20,7 +20,9 @@ Repository: `github.com/rursache/solo-cli`
 
 ```
 solo-cli/
-  main.go              - Entry point, CLI command routing, auth flow, TUI launch
+  main.go              - Entry point, CLI command routing, help, TUI launch
+  commands.go          - CLI command handlers (summary, revenues, expenses, queue, efactura, company, taxes, upload)
+  setup.go             - Config loading, authentication and API client setup
   skills.go            - AI skill download/install logic and first-run prompt
   go.mod / go.sum      - Go module definition (module name: solo-cli)
   config/
@@ -39,8 +41,18 @@ solo-cli/
     upload.go          - Two-step document upload (multipart upload + confirm)
     demo.go            - Mock data generators for demo/screenshot mode
   tui/
-    app.go             - Bubble Tea Model, Init/Update/View, tab rendering, data fetching
+    model.go           - Tab type, Model struct, message types, NewModel/NewDemoModel
+    update.go          - Init/Update loop, key handling, viewport sizing on resize
+    fetch.go           - Data fetch commands and queue deletion
+    view.go            - View composition, tab bar, table/layout helpers
+    tab_dashboard.go   - Dashboard tab rendering
+    tab_revenues.go    - Revenues tab rendering
+    tab_expenses.go    - Expenses tab rendering (incl. rejected warning block)
+    tab_queue.go       - Queue tab rendering
+    tab_efactura.go    - e-Factura tab rendering
+    tab_taxes.go       - Taxes tab rendering, scroll viewport, threshold hints
     styles.go          - lipgloss style definitions (colors, tabs, tables, etc.)
+    app_test.go        - TUI render tests (width/height fitting, demo model)
   skill/
     SKILL.md           - AI skill manifest for agentic tools
     references/
