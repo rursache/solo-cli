@@ -107,21 +107,9 @@ func downloadAndInstallSkills() error {
 	}
 
 	for _, file := range skillFiles {
-		url := fmt.Sprintf("https://raw.githubusercontent.com/%s/master/skill/%s", skillRepo, file)
-
-		resp, err := http.Get(url)
+		content, err := downloadSkillFile(file)
 		if err != nil {
-			return fmt.Errorf("failed to download %s: %w", file, err)
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode != 200 {
-			return fmt.Errorf("failed to download %s: HTTP %d", file, resp.StatusCode)
-		}
-
-		content, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return fmt.Errorf("failed to read %s: %w", file, err)
+			return err
 		}
 
 		for _, dir := range dirs {
@@ -136,6 +124,28 @@ func downloadAndInstallSkills() error {
 	}
 
 	return nil
+}
+
+// downloadSkillFile fetches one skill file, scoping the body close to this
+// call instead of deferring inside the caller's loop
+func downloadSkillFile(file string) ([]byte, error) {
+	url := fmt.Sprintf("https://raw.githubusercontent.com/%s/master/skill/%s", skillRepo, file)
+
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("failed to download %s: %w", file, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("failed to download %s: HTTP %d", file, resp.StatusCode)
+	}
+
+	content, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read %s: %w", file, err)
+	}
+	return content, nil
 }
 
 // runSetupSkills is the CLI command handler for "setup-skills"

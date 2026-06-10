@@ -63,6 +63,9 @@ func (c *Client) GetCompanyInfo(companyID string) (*CompanyInfo, error) {
 		}
 		return nil, fmt.Errorf("failed to get company info: %s", errMsg)
 	}
+	if result.Data == nil {
+		return nil, fmt.Errorf("company profile response has no data")
+	}
 
 	return result.Data, nil
 }

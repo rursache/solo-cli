@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -199,6 +200,37 @@ func TestGetCompanyInfo(t *testing.T) {
 
 	if _, err := c.GetCompanyInfo(""); err == nil {
 		t.Error("GetCompanyInfo with empty ID should fail")
+	}
+}
+
+func TestGetCompanyInfoNullData(t *testing.T) {
+	c := newTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"Ok":true,"Data":null}`))
+	}))
+
+	if _, err := c.GetCompanyInfo("abc123"); err == nil {
+		t.Error("Ok:true with null Data must return an error, not (nil, nil)")
+	}
+}
+
+// Server strings are sanitized at the doJSON choke point so terminal
+// escape sequences from the API can never reach the terminal
+func TestResponseStringSanitization(t *testing.T) {
+	c := newTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"Items":[{"SerialCode":"INV\u001b]0;pwned\u0007-1","ClientName":"ACME\u001b[2J","Total":10,"Currency":{"ShortName":"RON"}}]}`))
+	}))
+
+	resp, err := c.ListRevenues(0, 10, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, field := range []string{resp.Items[0].SerialCode, resp.Items[0].ClientName} {
+		if strings.ContainsAny(field, "\x1b\x07") {
+			t.Errorf("control characters survived sanitization: %q", field)
+		}
+	}
+	if !strings.Contains(resp.Items[0].ClientName, "ACME") {
+		t.Errorf("printable text lost during sanitization: %q", resp.Items[0].ClientName)
 	}
 }
 

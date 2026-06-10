@@ -101,7 +101,7 @@ func (c *Client) uploadFile(uploadID, filePath string) (string, error) {
 		result = string(body)
 	}
 
-	return result, nil
+	return cleanString(result), nil
 }
 
 // confirmUpload confirms the uploaded document as an expense

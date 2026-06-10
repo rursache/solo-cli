@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"os"
+	"time"
 )
 
 // baseURL is a var so tests can point the client at a mock server. The
@@ -52,6 +53,9 @@ func New(userAgent string) (*Client, error) {
 	return &Client{
 		httpClient: &http.Client{
 			Jar: jar,
+			// Bound every API call, a hung connection must not freeze
+			// the CLI or TUI forever
+			Timeout: 30 * time.Second,
 		},
 		userAgent: userAgent,
 	}, nil
