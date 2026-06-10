@@ -102,6 +102,7 @@ The tax calculator (`taxes/taxes.go`) computes CAS, CASS, and income tax for Rom
 
 - **Entry point**: `taxes.Calculate(totalRevenues, totalExpenses float64, cfg *config.TaxConfig) *TaxBreakdown`
 - **Net income** = revenues - expenses. CAS and CASS are each computed via bracket logic keyed on multiples of `salariu minim brut` (SMB).
+- **SMB January-1 rule**: the Codul Fiscal pegs CAS/CASS plafoane to the SMB in effect on January 1 of the income year and explicitly ignores mid-year raises. For 2026 income the correct value is 4050 RON (the July 2026 raise to 4325 does not apply, it first matters for 2027 income). Never bump `SalariuMinimBrut` in `DefaultTaxConfig()` just because a raise was announced.
 - **Bracket logic**: Each `TaxThreshold` defines `MinSalaries`/`MaxSalaries` (bounds in multiples of SMB), `BaseSalaries` (what percentage is applied to — `0` = exempt, `-1` = proportional/actual net income, positive = fixed multiple of SMB), and a `Label`.
 - **Threshold buffers**: Each result includes `BufferToNext` (how much more net income before crossing into the next bracket) and `NextLabel`.
 - **Surplus hint** (v1.5.1): When net income has already crossed a bracket boundary, `ExpensesToPrev` and `PrevLabel` are populated to show how much in additional deductible expenses would drop the taxpayer back into the cheaper bracket. The hint is only surfaced when the contribution saving exceeds the required expense (fires for CAS; suppressed for CASS when dropping a bracket would be a net loss).

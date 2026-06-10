@@ -32,10 +32,15 @@ type TaxConfig struct {
 }
 
 // DefaultTaxConfig returns the default tax configuration for 2026
+//
+// SalariuMinimBrut must be the SMB in effect on January 1 of the income year:
+// the Codul Fiscal pegs CAS/CASS plafoane to that value and explicitly ignores
+// mid-year raises (e.g. the July 2026 raise to 4325 does NOT apply to 2026
+// income, it first matters for 2027). Do not bump this when a raise is announced
 func DefaultTaxConfig() *TaxConfig {
 	return &TaxConfig{
 		Year:             2026,
-		SalariuMinimBrut: 4325,
+		SalariuMinimBrut: 4050,
 		IncomeTaxPercent: 10,
 		CASPercent:       25,
 		CASThresholds: []TaxThreshold{
