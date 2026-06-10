@@ -1,13 +1,14 @@
-## [Unreleased]
+## [1.7.0]
 
 ### Added
 - **List paging**: lists are no longer capped at `page_size` items. Scrolling near the end of the loaded items fetches the next page automatically and the status line shows the real server-reported total
 - **List search**: an always-visible search bar on the Revenues, Expenses, e-Factura and Queue tabs. Press `/` or click the bar to focus it, typing filters live server-side with a short debounce, Enter keeps the filter, Esc clears it
 - **Year switcher**: press `[` and `]` on the Dashboard or Taxes tab to view previous years, like `solo-cli summary 2025` on the CLI. Bounded by the current fiscal year. The Dashboard summary box also shows the last 4 years as clickable options with the selected one highlighted. Years without data show zeros (the API echoes the year back with empty totals)
-- **Richer Dashboard**: shows the company address, the CAEN codes (principal with full name, secundare as a code list) and the net income (revenues - expenses) in the summary box. The `company` CLI command also lists the CAEN codes
+- **Richer Dashboard**: shows the company address, the CAEN codes (principal with full name and marquee, secundare as a code list) and the net income (revenues - expenses) in the summary box. The `company` CLI command also lists the CAEN codes
+- **Test suite**: end-to-end CLI tests against a mock API (exact outputs, config/cookie files, session reuse) and live API schema drift detection that catches SOLO.ro renaming or removing fields our structs map
 
 ### Changed
-- **Compact header with quit button**: one less blank line between the title and the tabs, the search bar and result counter share one line (counter right aligned) and the title row has a clickable `✕ quit` button on the right edge
+- **Compact header with quit button**: one less blank line between the title and the tabs, the search bar and result counter share one line (counter right aligned) and the title row has a clickable `× quit` button on the right edge
 - **TUI Queue tab**: removed the `Status` column (queued documents are pending by definition) and the `Days` column is left aligned
 
 ### Fixed
