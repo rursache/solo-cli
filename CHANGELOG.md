@@ -8,7 +8,7 @@
 - **Test suite**: end-to-end CLI tests against a mock API (exact outputs, config/cookie files, session reuse) and live API schema drift detection that catches SOLO.ro renaming or removing fields our structs map
 
 ### Changed
-- **Compact header with quit button**: one less blank line between the title and the tabs, the search bar and result counter share one line (counter right aligned) and the title row has a clickable `× quit` button on the right edge
+- **Compact header with quit button**: one less blank line between the title and the tabs, the search bar and result counter share one line (counter right aligned) and the help row has a clickable `× quit` button on the right edge (placed on the bottom row because terminals with overlay titlebars swallow clicks on the top row)
 - **TUI Queue tab**: removed the `Status` column (queued documents are pending by definition) and the `Days` column is left aligned
 
 ### Fixed

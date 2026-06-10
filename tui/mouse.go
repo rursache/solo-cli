@@ -11,8 +11,6 @@ import (
 )
 
 const (
-	// titleRowY holds the app title and the quit button
-	titleRowY = 0
 	// tabsRowY is the screen row of the tab bar: title line and one blank
 	tabsRowY = 2
 	// searchBarRowY is the combined search/showing line, the first body row
@@ -32,8 +30,8 @@ func (m Model) listChromeShift() int {
 }
 
 func (m *Model) handleClick(x, y int) tea.Cmd {
-	if y == titleRowY {
-		return m.clickQuit(x)
+	if cmd := m.clickQuit(x, y); cmd != nil {
+		return cmd
 	}
 	if y == tabsRowY {
 		return m.clickTab(x)
@@ -86,12 +84,15 @@ func (m *Model) clickYear(x, y int) tea.Cmd {
 	return nil
 }
 
-// clickQuit hit-tests the quit button by locating it in the rendered
-// title row, so the zone cannot drift from the layout math
-func (m *Model) clickQuit(x int) tea.Cmd {
-	view := m.View()
-	line, _, _ := strings.Cut(view, "\n")
-	plain := ansi.Strip(line)
+// clickQuit hit-tests the quit button on the help row (the last terminal
+// line) by locating it in the rendered view, so the zone cannot drift
+// from the layout math
+func (m *Model) clickQuit(x, y int) tea.Cmd {
+	if m.height == 0 || y != m.height-1 {
+		return nil
+	}
+	lines := strings.Split(m.View(), "\n")
+	plain := ansi.Strip(lines[len(lines)-1])
 	idx := strings.Index(plain, quitLabel)
 	if idx < 0 {
 		return nil
