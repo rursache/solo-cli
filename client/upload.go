@@ -106,29 +106,6 @@ func (c *Client) uploadFile(uploadID, filePath string) (string, error) {
 
 // confirmUpload confirms the uploaded document as an expense
 func (c *Client) confirmUpload(uploadID string) error {
-	url := fmt.Sprintf("%s/api/financial-documents/save/expenses/%s", baseURL, uploadID)
-
-	req, err := http.NewRequest("POST", url, bytes.NewReader([]byte("{}")))
-	if err != nil {
-		return err
-	}
-
-	req.Header.Set("Accept", "application/json, text/plain, */*")
-	req.Header.Set("Content-Type", "application/json;charset=UTF-8")
-	req.Header.Set("User-Agent", c.userAgent)
-	req.Header.Set("Origin", baseURL)
-	req.Header.Set("Referer", baseURL+"/")
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("confirm failed with status %d: %s", resp.StatusCode, string(body))
-	}
-
-	return nil
+	path := fmt.Sprintf("/api/financial-documents/save/expenses/%s", uploadID)
+	return c.doJSON("POST", path, "/", struct{}{}, nil)
 }

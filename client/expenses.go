@@ -1,12 +1,6 @@
 package client
 
-import (
-	"bytes"
-	"encoding/json"
-	"fmt"
-	"io"
-	"net/http"
-)
+import "fmt"
 
 // Expense represents a single expense item
 type Expense struct {
@@ -28,15 +22,6 @@ type Expense struct {
 type ExpenseLocalAmount struct {
 	Total    float64  `json:"Total"`
 	Currency Currency `json:"Currency"`
-}
-
-// ExpenseListRequest represents request body for listing expenses
-type ExpenseListRequest struct {
-	SearchText string `json:"SearchText"`
-	StartIndex int    `json:"StartIndex"`
-	MaxResults int    `json:"MaxResults"`
-	SortBy     string `json:"SortBy"`
-	SortAsc    bool   `json:"SortAsc"`
 }
 
 // ExpenseListResponse represents response from expense list endpoint
@@ -89,213 +74,50 @@ type RejectedExpenseResponse struct {
 
 // ListExpenses fetches the list of expenses
 func (c *Client) ListExpenses(startIndex, maxResults int) (*ExpenseListResponse, error) {
-	reqBody := ExpenseListRequest{
-		SearchText: "",
-		StartIndex: startIndex,
-		MaxResults: maxResults,
-		SortBy:     "",
-		SortAsc:    true,
-	}
-
-	bodyData, err := json.Marshal(reqBody)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", baseURL+"/proxy/accounting/expenses/list", bytes.NewReader(bodyData))
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Set("Accept", "application/json, text/plain, */*")
-	req.Header.Set("Content-Type", "application/json;charset=UTF-8")
-	req.Header.Set("User-Agent", c.userAgent)
-	req.Header.Set("Origin", baseURL)
-	req.Header.Set("Referer", baseURL+"/expenses")
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to list expenses: status %d", resp.StatusCode)
-	}
-
 	var result ExpenseListResponse
-	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, err
+	if err := c.doJSON("POST", "/proxy/accounting/expenses/list", "/expenses", newListRequest(startIndex, maxResults), &result); err != nil {
+		return nil, fmt.Errorf("failed to list expenses: %w", err)
 	}
-
 	return &result, nil
 }
 
 // GetExpenseSummary fetches expense summary for a given year
 func (c *Client) GetExpenseSummary(year int) (*ExpenseSummary, error) {
-	url := fmt.Sprintf("%s/proxy/accounting/expenses/summary", baseURL)
+	path := "/proxy/accounting/expenses/summary"
 	if year > 0 {
-		url = fmt.Sprintf("%s?year=%d", url, year)
-	}
-
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Set("Accept", "application/json, text/plain, */*")
-	req.Header.Set("User-Agent", c.userAgent)
-	req.Header.Set("Referer", baseURL+"/")
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to get expense summary: status %d", resp.StatusCode)
+		path = fmt.Sprintf("%s?year=%d", path, year)
 	}
 
 	var result ExpenseSummary
-	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, err
+	if err := c.doJSON("GET", path, "/", nil, &result); err != nil {
+		return nil, fmt.Errorf("failed to get expense summary: %w", err)
 	}
-
 	return &result, nil
 }
 
 // ListQueuedExpenses fetches documents pending processing
 func (c *Client) ListQueuedExpenses(startIndex, maxResults int) (*QueuedExpenseResponse, error) {
-	reqBody := ExpenseListRequest{
-		SearchText: "",
-		StartIndex: startIndex,
-		MaxResults: maxResults,
-		SortBy:     "",
-		SortAsc:    true,
-	}
-
-	bodyData, err := json.Marshal(reqBody)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", baseURL+"/proxy/accounting/expenses/queued", bytes.NewReader(bodyData))
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Set("Accept", "application/json, text/plain, */*")
-	req.Header.Set("Content-Type", "application/json;charset=UTF-8")
-	req.Header.Set("User-Agent", c.userAgent)
-	req.Header.Set("Origin", baseURL)
-	req.Header.Set("Referer", baseURL+"/expenses")
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to list queued expenses: status %d", resp.StatusCode)
-	}
-
 	var result QueuedExpenseResponse
-	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, err
+	if err := c.doJSON("POST", "/proxy/accounting/expenses/queued", "/expenses", newListRequest(startIndex, maxResults), &result); err != nil {
+		return nil, fmt.Errorf("failed to list queued expenses: %w", err)
 	}
-
 	return &result, nil
 }
 
 // ListRejectedExpenses fetches expenses that were rejected
 func (c *Client) ListRejectedExpenses(startIndex, maxResults int) (*RejectedExpenseResponse, error) {
-	reqBody := ExpenseListRequest{
-		SearchText: "",
-		StartIndex: startIndex,
-		MaxResults: maxResults,
-		SortBy:     "",
-		SortAsc:    true,
-	}
-
-	bodyData, err := json.Marshal(reqBody)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", baseURL+"/proxy/accounting/expenses/rejected", bytes.NewReader(bodyData))
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Set("Accept", "application/json, text/plain, */*")
-	req.Header.Set("Content-Type", "application/json;charset=UTF-8")
-	req.Header.Set("User-Agent", c.userAgent)
-	req.Header.Set("Origin", baseURL)
-	req.Header.Set("Referer", baseURL+"/expenses")
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to list rejected expenses: status %d", resp.StatusCode)
-	}
-
 	var result RejectedExpenseResponse
-	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, err
+	if err := c.doJSON("POST", "/proxy/accounting/expenses/rejected", "/expenses", newListRequest(startIndex, maxResults), &result); err != nil {
+		return nil, fmt.Errorf("failed to list rejected expenses: %w", err)
 	}
-
 	return &result, nil
 }
 
 // DeleteExpense deletes an expense by ID
 func (c *Client) DeleteExpense(id int) error {
-	url := fmt.Sprintf("%s/proxy/accounting/expenses/%d", baseURL, id)
-
-	req, err := http.NewRequest("DELETE", url, nil)
-	if err != nil {
-		return err
+	path := fmt.Sprintf("/proxy/accounting/expenses/%d", id)
+	if err := c.doJSON("DELETE", path, "/expenses", nil, nil); err != nil {
+		return fmt.Errorf("failed to delete expense: %w", err)
 	}
-
-	req.Header.Set("Accept", "application/json, text/plain, */*")
-	req.Header.Set("User-Agent", c.userAgent)
-	req.Header.Set("Origin", baseURL)
-	req.Header.Set("Referer", baseURL+"/expenses")
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to delete expense: status %d", resp.StatusCode)
-	}
-
 	return nil
 }

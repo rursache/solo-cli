@@ -1,12 +1,6 @@
 package client
 
-import (
-	"bytes"
-	"encoding/json"
-	"fmt"
-	"io"
-	"net/http"
-)
+import "fmt"
 
 // Revenue represents a single revenue/invoice item
 type Revenue struct {
@@ -57,17 +51,6 @@ type EInvoiceStatus struct {
 	EnableCloudFormation bool   `json:"EnableCloudFormation"`
 }
 
-// RevenueListRequest represents request body for listing revenues
-type RevenueListRequest struct {
-	SearchText              string `json:"SearchText"`
-	StartIndex              int    `json:"StartIndex"`
-	MaxResults              int    `json:"MaxResults"`
-	SortBy                  string `json:"SortBy"`
-	SortAsc                 bool   `json:"SortAsc"`
-	InvoiceStatus           int    `json:"InvoiceStatus"`
-	ElectronicInvoiceStatus int    `json:"ElectronicInvoiceStatus"`
-}
-
 // RevenueListResponse represents response from revenue list endpoint
 type RevenueListResponse struct {
 	Items        []Revenue `json:"Items"`
@@ -81,90 +64,32 @@ type RevenueSummary struct {
 
 // ListRevenues fetches the list of revenues/invoices
 func (c *Client) ListRevenues(startIndex, maxResults int) (*RevenueListResponse, error) {
-	reqBody := RevenueListRequest{
-		SearchText:              "",
-		StartIndex:              startIndex,
-		MaxResults:              maxResults,
-		SortBy:                  "",
-		SortAsc:                 true,
-		InvoiceStatus:           1,
-		ElectronicInvoiceStatus: 0,
-	}
-
-	bodyData, err := json.Marshal(reqBody)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", baseURL+"/proxy/accounting/revenues/list", bytes.NewReader(bodyData))
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Set("Accept", "application/json, text/plain, */*")
-	req.Header.Set("Content-Type", "application/json;charset=UTF-8")
-	req.Header.Set("User-Agent", c.userAgent)
-	req.Header.Set("Origin", baseURL)
-	req.Header.Set("Referer", baseURL+"/revenues")
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to list revenues: status %d", resp.StatusCode)
+	reqBody := struct {
+		listRequest
+		InvoiceStatus           int `json:"InvoiceStatus"`
+		ElectronicInvoiceStatus int `json:"ElectronicInvoiceStatus"`
+	}{
+		listRequest:   newListRequest(startIndex, maxResults),
+		InvoiceStatus: 1,
 	}
 
 	var result RevenueListResponse
-	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, err
+	if err := c.doJSON("POST", "/proxy/accounting/revenues/list", "/revenues", reqBody, &result); err != nil {
+		return nil, fmt.Errorf("failed to list revenues: %w", err)
 	}
-
 	return &result, nil
 }
 
 // GetRevenueSummary fetches revenue summary for a given year
 func (c *Client) GetRevenueSummary(year int) (*RevenueSummary, error) {
-	url := fmt.Sprintf("%s/proxy/accounting/revenues/summary", baseURL)
+	path := "/proxy/accounting/revenues/summary"
 	if year > 0 {
-		url = fmt.Sprintf("%s?year=%d", url, year)
-	}
-
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Set("Accept", "application/json, text/plain, */*")
-	req.Header.Set("User-Agent", c.userAgent)
-	req.Header.Set("Referer", baseURL+"/")
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to get revenue summary: status %d", resp.StatusCode)
+		path = fmt.Sprintf("%s?year=%d", path, year)
 	}
 
 	var result RevenueSummary
-	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, err
+	if err := c.doJSON("GET", path, "/", nil, &result); err != nil {
+		return nil, fmt.Errorf("failed to get revenue summary: %w", err)
 	}
-
 	return &result, nil
 }

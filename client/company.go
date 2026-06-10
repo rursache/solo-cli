@@ -1,11 +1,6 @@
 package client
 
-import (
-	"encoding/json"
-	"fmt"
-	"io"
-	"net/http"
-)
+import "fmt"
 
 // CompanyInfo represents the company profile
 type CompanyInfo struct {
@@ -30,35 +25,11 @@ func (c *Client) GetCompanyInfo(companyID string) (*CompanyInfo, error) {
 		return nil, fmt.Errorf("company ID not available")
 	}
 
-	url := fmt.Sprintf("%s/proxy/accounting/company/basic-profile/company_%s", baseURL, companyID)
-
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Set("Accept", "application/json, text/plain, */*")
-	req.Header.Set("User-Agent", c.userAgent)
-	req.Header.Set("Referer", baseURL+"/settings")
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to get company info: status %d", resp.StatusCode)
-	}
+	path := fmt.Sprintf("/proxy/accounting/company/basic-profile/company_%s", companyID)
 
 	var result CompanyInfoResponse
-	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, err
+	if err := c.doJSON("GET", path, "/settings", nil, &result); err != nil {
+		return nil, fmt.Errorf("failed to get company info: %w", err)
 	}
 
 	if !result.Ok {

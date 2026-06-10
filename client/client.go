@@ -1,11 +1,8 @@
 package client
 
 import (
-	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"net/http/cookiejar"
 )
@@ -53,57 +50,17 @@ func New(userAgent string) (*Client, error) {
 
 // Login authenticates with SOLO.ro and stores session cookies
 func (c *Client) Login(username, password string) error {
-	reqBody := loginRequest{
-		UserName: username,
-		Password: password,
-	}
-
-	bodyData, err := json.Marshal(reqBody)
+	var resp loginResponse
+	err := c.doJSON("POST", loginPath, "/authentication", loginRequest{UserName: username, Password: password}, &resp)
 	if err != nil {
-		return err
+		return fmt.Errorf("login failed: %w", err)
 	}
 
-	req, err := http.NewRequest("POST", baseURL+loginPath, bytes.NewReader(bodyData))
-	if err != nil {
-		return err
-	}
-
-	req.Header.Set("Accept", "application/json, text/plain, */*")
-	req.Header.Set("Content-Type", "application/json;charset=UTF-8")
-	req.Header.Set("User-Agent", c.userAgent)
-	req.Header.Set("Origin", baseURL)
-	req.Header.Set("Referer", baseURL+"/authentication")
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("login failed with status %d: %s", resp.StatusCode, string(body))
-	}
-
-	var loginResp loginResponse
-	if err := json.Unmarshal(body, &loginResp); err != nil {
-		return err
-	}
-
-	if loginResp.AuthenticationStatus != "OK" {
+	if resp.AuthenticationStatus != "OK" {
 		return ErrAuthenticationFailed
 	}
 
 	return nil
-}
-
-// GetHTTPClient returns the underlying HTTP client (useful for subsequent API calls)
-func (c *Client) GetHTTPClient() *http.Client {
-	return c.httpClient
 }
 
 // Summary represents the dashboard summary response
@@ -125,39 +82,14 @@ func (c *Client) GetSummary() (*Summary, error) {
 
 // GetSummaryForYear fetches the dashboard summary for a specific year (0 = current)
 func (c *Client) GetSummaryForYear(year int) (*Summary, error) {
-	url := baseURL + "/proxy/accounting/dashboard/summary"
+	path := "/proxy/accounting/dashboard/summary"
 	if year > 0 {
-		url = fmt.Sprintf("%s?year=%d", url, year)
-	}
-
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Set("Accept", "application/json, text/plain, */*")
-	req.Header.Set("User-Agent", c.userAgent)
-	req.Header.Set("Referer", baseURL+"/dashboard")
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to get summary: status %d", resp.StatusCode)
+		path = fmt.Sprintf("%s?year=%d", path, year)
 	}
 
 	var summary Summary
-	if err := json.Unmarshal(body, &summary); err != nil {
-		return nil, err
+	if err := c.doJSON("GET", path, "/dashboard", nil, &summary); err != nil {
+		return nil, fmt.Errorf("failed to get summary: %w", err)
 	}
-
 	return &summary, nil
 }

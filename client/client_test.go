@@ -94,7 +94,7 @@ func TestListRevenues(t *testing.T) {
 		if r.URL.Path != "/proxy/accounting/revenues/list" || r.Method != "POST" {
 			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
 		}
-		var req RevenueListRequest
+		var req listRequest
 		json.NewDecoder(r.Body).Decode(&req)
 		if req.StartIndex != 0 || req.MaxResults != 10 {
 			t.Errorf("pagination not sent: %+v", req)
