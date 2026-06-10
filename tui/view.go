@@ -223,8 +223,10 @@ func (m Model) emptyList(message string) string {
 	return m.renderSearchBar() + "\n\n" + message
 }
 
-// quitLabel is the clickable quit button on the title row
-const quitLabel = "✕ quit"
+// quitLabel is the clickable quit button on the title row. The × is
+// U+00D7 which is single-width in every terminal font, unlike U+2715
+// which renders wide in some fonts and wraps the title row
+const quitLabel = "× quit"
 
 // bodyHeight returns the rows available for tab content between the
 // title/tab chrome (4 lines) and the pinned help footer (2 lines, after

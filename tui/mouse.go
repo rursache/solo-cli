@@ -33,11 +33,7 @@ func (m Model) listChromeShift() int {
 
 func (m *Model) handleClick(x, y int) tea.Cmd {
 	if y == titleRowY {
-		// The quit button occupies the right end of the title row
-		if m.width > 0 && x >= m.width-1-lipgloss.Width(quitLabel) {
-			return tea.Quit
-		}
-		return nil
+		return m.clickQuit(x)
 	}
 	if y == tabsRowY {
 		return m.clickTab(x)
@@ -86,6 +82,24 @@ func (m *Model) clickYear(x, y int) tea.Cmd {
 			}
 			return nil
 		}
+	}
+	return nil
+}
+
+// clickQuit hit-tests the quit button by locating it in the rendered
+// title row, so the zone cannot drift from the layout math
+func (m *Model) clickQuit(x int) tea.Cmd {
+	view := m.View()
+	line, _, _ := strings.Cut(view, "\n")
+	plain := ansi.Strip(line)
+	idx := strings.Index(plain, quitLabel)
+	if idx < 0 {
+		return nil
+	}
+	col := utf8.RuneCountInString(plain[:idx])
+	// One cell of slack on each side for easier clicking
+	if x >= col-1 && x <= col+utf8.RuneCountInString(quitLabel) {
+		return tea.Quit
 	}
 	return nil
 }
