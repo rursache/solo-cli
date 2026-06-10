@@ -1,4 +1,4 @@
-## [Unreleased]
+## [1.6.0]
 
 ### Added
 - **TUI mouse support**: click a tab to switch to it, click a table row to select it and use the mouse wheel to scroll lists and the Taxes view. Note: with mouse capture on, text selection in the terminal needs the usual modifier key (Shift or Option/Alt depending on the terminal)
