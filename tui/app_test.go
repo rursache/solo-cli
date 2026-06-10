@@ -528,7 +528,11 @@ func TestDashboardCAENMarquees(t *testing.T) {
 	m.marqueeOffset = marqueeHoldTicks + 10
 	after := m.View()
 	if strings.Contains(after, "CAEN principal: 6201") {
-		t.Error("principal line did not slide after the marquee hold")
+		t.Error("principal value did not slide after the marquee hold")
+	}
+	// The label must stay static while the value scrolls
+	if !strings.Contains(after, "CAEN principal: ") {
+		t.Error("the CAEN principal label must not scroll away")
 	}
 }
 

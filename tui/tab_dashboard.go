@@ -105,7 +105,7 @@ func (m Model) renderCAENLines(width int) string {
 	var secondary []string
 	for _, c := range m.caenCodes {
 		if c.IsPrimary {
-			primary = fmt.Sprintf("CAEN principal: %s - %s", c.Code, c.Name)
+			primary = fmt.Sprintf("%s - %s", c.Code, c.Name)
 		} else {
 			secondary = append(secondary, c.Code)
 		}
@@ -113,7 +113,13 @@ func (m Model) renderCAENLines(width int) string {
 
 	var b strings.Builder
 	if primary != "" {
-		b.WriteString(SummaryLabelStyle.Render(marquee(primary, width, m.marqueeOffset)))
+		// The label stays static, only the value marquees
+		const label = "CAEN principal: "
+		valueWidth := width - len(label)
+		if valueWidth < 10 {
+			valueWidth = 10
+		}
+		b.WriteString(SummaryLabelStyle.Render(label + marquee(primary, valueWidth, m.marqueeOffset)))
 		b.WriteString("\n")
 	}
 	if len(secondary) > 0 {
