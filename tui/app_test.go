@@ -303,10 +303,41 @@ func TestSummarySetsYearBounds(t *testing.T) {
 		t.Fatalf("after first summary: year %d maxYear %d, want 2026/2026", m.year, m.maxYear)
 	}
 
+	// A response for the selected year lands (the user switched to 2024)
+	m.year = 2024
 	updated, _ = m.Update(summaryMsg(&client.Summary{Year: 2024, TotalRevenues: 500}))
 	m = updated.(Model)
 	if m.year != 2024 || m.maxYear != 2026 {
 		t.Errorf("after year switch: year %d maxYear %d, want 2024/2026", m.year, m.maxYear)
+	}
+
+	// A stale response for a year no longer selected is dropped: rapid
+	// [ [ presses must not let the slower older fetch win
+	updated, _ = m.Update(summaryMsg(&client.Summary{Year: 2025, TotalRevenues: 777}))
+	m = updated.(Model)
+	if m.summary.Year != 2024 {
+		t.Errorf("stale summary for %d replaced the selected year 2024", m.summary.Year)
+	}
+}
+
+// Space in the search input must insert exactly one space (KeySpace events
+// carry the space in Runes already)
+func TestSearchSpaceKey(t *testing.T) {
+	m := NewDemoModel()
+	m.demoMode = false
+	m.activeTab = TabRevenues
+
+	updated, _ := m.Update(keyMsg("/"))
+	m = updated.(Model)
+	updated, _ = m.Update(keyMsg("a"))
+	m = updated.(Model)
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeySpace, Runes: []rune{' '}})
+	m = updated.(Model)
+	updated, _ = m.Update(keyMsg("b"))
+	m = updated.(Model)
+
+	if m.searchInput != "a b" {
+		t.Errorf("searchInput = %q, want %q (space typed once)", m.searchInput, "a b")
 	}
 }
 
@@ -372,12 +403,23 @@ func TestListPaging(t *testing.T) {
 		t.Error("duplicate page fetch while one is in flight")
 	}
 
-	// The page appends instead of replacing
+	// A stale page (fetched for a previous list generation) is dropped
 	page := &client.RevenueListResponse{
+		Items:        []client.Revenue{{SerialCode: "STALE", ClientName: "Old Search"}},
+		TotalResults: &total,
+	}
+	updated, _ = m.Update(revenuesPageMsg{resp: page, gen: m.listGen - 1})
+	m = updated.(Model)
+	if len(m.revenues.Items) != 20 {
+		t.Errorf("stale page was appended: %d items", len(m.revenues.Items))
+	}
+
+	// The current-generation page appends
+	page = &client.RevenueListResponse{
 		Items:        []client.Revenue{{SerialCode: "PAGE-2", ClientName: "Second Page"}},
 		TotalResults: &total,
 	}
-	updated, _ = m.Update(revenuesPageMsg(page))
+	updated, _ = m.Update(revenuesPageMsg{resp: page, gen: m.listGen})
 	m = updated.(Model)
 	if len(m.revenues.Items) != 21 {
 		t.Errorf("items after page = %d, want 21 (appended)", len(m.revenues.Items))
@@ -387,6 +429,18 @@ func TestListPaging(t *testing.T) {
 	}
 	if m.revenues.Items[20].SerialCode != "PAGE-2" {
 		t.Errorf("page items not appended at the end: %+v", m.revenues.Items[20])
+	}
+
+	// Switching tabs invalidates in-flight pages and unblocks paging
+	m.fetchingMore = true
+	gen := m.listGen
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyTab})
+	m = updated.(Model)
+	if m.fetchingMore {
+		t.Error("fetchingMore must reset on tab switch")
+	}
+	if m.listGen == gen {
+		t.Error("tab switch must bump the list generation")
 	}
 }
 

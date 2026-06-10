@@ -38,6 +38,9 @@ func (m *Model) applySearch() tea.Cmd {
 	m.cursor = 0
 	m.viewportOffset = 0
 	m.marqueeOffset = 0
+	// The list is about to be replaced: in-flight page fetches are stale
+	m.listGen++
+	m.fetchingMore = false
 	return m.fetchActiveList()
 }
 
@@ -87,10 +90,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "ctrl+c":
 				return m, tea.Quit
 			default:
+				// KeySpace already carries the space in Runes, do not
+				// append it twice
 				if msg.Type == tea.KeyRunes || msg.Type == tea.KeySpace {
-					m.searchInput += string(msg.Runes)
 					if msg.Type == tea.KeySpace {
 						m.searchInput += " "
+					} else {
+						m.searchInput += string(msg.Runes)
 					}
 					return m, m.debounceSearch()
 				}
@@ -150,6 +156,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "r":
 			// Refresh
 			m.loading = true
+			m.listGen++
+			m.fetchingMore = false
 			return m, m.fetchAll()
 		}
 
@@ -163,12 +171,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.viewportSize < 3 {
 			m.viewportSize = 3
 		}
-		// Keep the cursor visible after a resize
-		if m.cursor >= m.viewportOffset+m.viewportSize {
-			m.viewportOffset = m.cursor - m.viewportSize + 1
+		// Keep the cursor visible after a resize, using the effective
+		// per-tab viewport (the Expenses warning block shrinks it)
+		size := m.tabViewportSize()
+		if m.cursor >= m.viewportOffset+size {
+			m.viewportOffset = m.cursor - size + 1
 		} else if m.viewportOffset > 0 {
 			// Pull the list up if the larger viewport leaves dead space
-			maxOffset := m.getMaxCursor() - m.viewportSize
+			maxOffset := m.getMaxCursor() - size
 			if maxOffset < 0 {
 				maxOffset = 0
 			}
@@ -181,6 +191,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case summaryMsg:
+		// Drop stale responses from rapid year switching: only the summary
+		// for the currently selected year may land (m.year is 0 only
+		// before the very first response)
+		if msg != nil && m.year != 0 && msg.Year != m.year {
+			return m, nil
+		}
 		m.summary = msg
 		if m.summary != nil {
 			// The first summary establishes the current fiscal year, the
@@ -225,9 +241,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.checkLoadingDone()
 
 	case revenuesPageMsg:
-		if m.revenues != nil && msg != nil {
-			m.revenues.Items = append(m.revenues.Items, msg.Items...)
-			m.revenues.TotalResults = msg.TotalResults
+		if msg.gen != m.listGen {
+			return m, nil // Stale page from a replaced list, drop it
+		}
+		if m.revenues != nil && msg.resp != nil {
+			m.revenues.Items = append(m.revenues.Items, msg.resp.Items...)
+			m.revenues.TotalResults = msg.resp.TotalResults
 		}
 		m.fetchingMore = false
 		// Keep loading until complete while the chart is visible
@@ -236,23 +255,32 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case expensesPageMsg:
-		if m.expenses != nil && msg != nil {
-			m.expenses.Items = append(m.expenses.Items, msg.Items...)
-			m.expenses.TotalResults = msg.TotalResults
+		if msg.gen != m.listGen {
+			return m, nil
+		}
+		if m.expenses != nil && msg.resp != nil {
+			m.expenses.Items = append(m.expenses.Items, msg.resp.Items...)
+			m.expenses.TotalResults = msg.resp.TotalResults
 		}
 		m.fetchingMore = false
 
 	case queuePageMsg:
-		if m.queue != nil && msg != nil {
-			m.queue.Items = append(m.queue.Items, msg.Items...)
-			m.queue.TotalResults = msg.TotalResults
+		if msg.gen != m.listGen {
+			return m, nil
+		}
+		if m.queue != nil && msg.resp != nil {
+			m.queue.Items = append(m.queue.Items, msg.resp.Items...)
+			m.queue.TotalResults = msg.resp.TotalResults
 		}
 		m.fetchingMore = false
 
 	case efacturaPageMsg:
-		if m.efactura != nil && msg != nil {
-			m.efactura.Items = append(m.efactura.Items, msg.Items...)
-			m.efactura.TotalResults = msg.TotalResults
+		if msg.gen != m.listGen {
+			return m, nil
+		}
+		if m.efactura != nil && msg.resp != nil {
+			m.efactura.Items = append(m.efactura.Items, msg.resp.Items...)
+			m.efactura.TotalResults = msg.resp.TotalResults
 		}
 		m.fetchingMore = false
 
@@ -331,6 +359,9 @@ func (m *Model) setTab(t Tab) tea.Cmd {
 	m.searching = false
 	m.searchInput = ""
 	m.searchQuery = ""
+	// In-flight page fetches belong to the previous tab's list
+	m.listGen++
+	m.fetchingMore = false
 	if hadQuery && !m.demoMode {
 		return m.fetchAll()
 	}

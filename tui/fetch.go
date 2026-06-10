@@ -145,13 +145,13 @@ func (m *Model) fetchRestOfRevenues() tea.Cmd {
 	}
 	m.fetchingMore = true
 
-	offset, pageSize, c := loaded, m.pageSize, m.client
+	offset, pageSize, c, gen := loaded, m.pageSize, m.client, m.listGen
 	return func() tea.Msg {
 		resp, err := c.ListRevenues(offset, pageSize, "")
 		if err != nil {
 			return errMsg(err)
 		}
-		return revenuesPageMsg(resp)
+		return revenuesPageMsg{resp, gen}
 	}
 }
 
@@ -167,7 +167,7 @@ func (m *Model) maybeFetchMore() tea.Cmd {
 	}
 	m.fetchingMore = true
 
-	offset, pageSize := loaded, m.pageSize
+	offset, pageSize, gen := loaded, m.pageSize, m.listGen
 	c, tab, search := m.client, m.activeTab, m.searchQuery
 	switch tab {
 	case TabRevenues:
@@ -176,7 +176,7 @@ func (m *Model) maybeFetchMore() tea.Cmd {
 			if err != nil {
 				return errMsg(err)
 			}
-			return revenuesPageMsg(resp)
+			return revenuesPageMsg{resp, gen}
 		}
 	case TabExpenses:
 		return func() tea.Msg {
@@ -184,7 +184,7 @@ func (m *Model) maybeFetchMore() tea.Cmd {
 			if err != nil {
 				return errMsg(err)
 			}
-			return expensesPageMsg(resp)
+			return expensesPageMsg{resp, gen}
 		}
 	case TabEFactura:
 		return func() tea.Msg {
@@ -192,7 +192,7 @@ func (m *Model) maybeFetchMore() tea.Cmd {
 			if err != nil {
 				return errMsg(err)
 			}
-			return efacturaPageMsg(resp)
+			return efacturaPageMsg{resp, gen}
 		}
 	case TabQueue:
 		return func() tea.Msg {
@@ -200,7 +200,7 @@ func (m *Model) maybeFetchMore() tea.Cmd {
 			if err != nil {
 				return errMsg(err)
 			}
-			return queuePageMsg(resp)
+			return queuePageMsg{resp, gen}
 		}
 	}
 	return nil

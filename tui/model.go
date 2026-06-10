@@ -84,6 +84,7 @@ type Model struct {
 	taxesScroll    int  // Scroll offset for taxes tab
 	taxesLines     int  // Total line count of taxes content
 	fetchingMore   bool // A next-page fetch is in flight
+	listGen        int  // List generation, stale page fetches are dropped
 	demoMode       bool
 	debugMouse     bool   // SOLO_MOUSE_DEBUG=1, show raw mouse events
 	lastMouse      string // Last mouse event, for the debug overlay
@@ -103,11 +104,26 @@ type efacturaMsg *client.EFacturaListResponse
 type errMsg error
 type deleteSuccessMsg struct{}
 
-// Page messages append to the already loaded list instead of replacing it
-type revenuesPageMsg *client.RevenueListResponse
-type expensesPageMsg *client.ExpenseListResponse
-type queuePageMsg *client.QueuedExpenseResponse
-type efacturaPageMsg *client.EFacturaListResponse
+// Page messages append to the already loaded list instead of replacing it.
+// gen ties the page to the list generation it was fetched for, so a slow
+// page landing after a refresh or search change is dropped instead of
+// appending mismatched data
+type revenuesPageMsg struct {
+	resp *client.RevenueListResponse
+	gen  int
+}
+type expensesPageMsg struct {
+	resp *client.ExpenseListResponse
+	gen  int
+}
+type queuePageMsg struct {
+	resp *client.QueuedExpenseResponse
+	gen  int
+}
+type efacturaPageMsg struct {
+	resp *client.EFacturaListResponse
+	gen  int
+}
 
 func newSpinner() spinner.Model {
 	s := spinner.New()
