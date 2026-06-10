@@ -171,7 +171,9 @@ func (m Model) renderList(total int, header string, row func(i int) string) stri
 		b.WriteString("\n")
 	}
 
-	return b.String()
+	// No trailing newline: with a full viewport it would push the view one
+	// line past the terminal height and clip the title off the top
+	return strings.TrimSuffix(b.String(), "\n")
 }
 
 // bodyHeight returns the rows available for tab content between the

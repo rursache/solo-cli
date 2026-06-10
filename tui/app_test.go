@@ -139,6 +139,44 @@ func TestTaxesViewportUsesFullHeight(t *testing.T) {
 	}
 }
 
+// Regression: with enough items to completely fill the viewport, the view
+// must still fit the terminal exactly. The demo lists are short, so this
+// inflates them past any viewport size
+func TestFullViewportStaysWithinHeight(t *testing.T) {
+	const height = 30
+
+	m := NewDemoModel()
+	for len(m.revenues.Items) < 100 {
+		m.revenues.Items = append(m.revenues.Items, m.revenues.Items...)
+	}
+	for len(m.expenses.Items) < 100 {
+		m.expenses.Items = append(m.expenses.Items, m.expenses.Items...)
+	}
+	for len(m.efactura.Items) < 100 {
+		m.efactura.Items = append(m.efactura.Items, m.efactura.Items...)
+	}
+	for len(m.queue.Items) < 100 {
+		m.queue.Items = append(m.queue.Items, m.queue.Items...)
+	}
+
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: height})
+	m = updated.(Model)
+
+	for _, tab := range []Tab{TabRevenues, TabExpenses, TabEFactura, TabQueue} {
+		m.activeTab = tab
+		lines := strings.Split(m.View(), "\n")
+		if len(lines) != height {
+			t.Errorf("tab %s: view has %d lines, want exactly %d", tab, len(lines), height)
+		}
+		if !strings.Contains(lines[0], "SOLO.ro CLI") {
+			t.Errorf("tab %s: title missing from first line: %q", tab, lines[0])
+		}
+		if !strings.Contains(lines[len(lines)-1], "quit") {
+			t.Errorf("tab %s: help bar missing from last line", tab)
+		}
+	}
+}
+
 func TestMouseNavigation(t *testing.T) {
 	m := NewDemoModel()
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
