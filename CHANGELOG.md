@@ -1,4 +1,4 @@
-## [Unreleased]
+## [1.7.1]
 
 ### Added
 - **Row detail modal**: press Enter on any list row to open a centered modal with every field untruncated (dates, payment status, local amounts, VAT, statuses, deductibility, queue deadlines). Arrow keys browse items while open, Esc or a click closes it. No nested navigation
