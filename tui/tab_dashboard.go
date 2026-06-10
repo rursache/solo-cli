@@ -3,8 +3,6 @@ package tui
 import (
 	"fmt"
 	"strings"
-
-	"solo-cli/client"
 )
 
 func (m Model) renderDashboard() string {
@@ -24,7 +22,7 @@ func (m Model) renderDashboard() string {
 			b.WriteString(SummaryLabelStyle.Render(truncate(m.company.Address, m.fillWidth(0, 40))))
 			b.WriteString("\n")
 		}
-		if caen := renderCAENLines(m.caenCodes, m.fillWidth(0, 40)); caen != "" {
+		if caen := m.renderCAENLines(m.fillWidth(0, 40)); caen != "" {
 			b.WriteString(caen)
 		}
 		b.WriteString("\n")
@@ -74,15 +72,16 @@ func (m Model) renderDashboard() string {
 }
 
 // renderCAENLines shows the principal CAEN code with its full name and the
-// secondary ones as a compact code list
-func renderCAENLines(codes []client.CAENCode, width int) string {
-	if len(codes) == 0 {
+// secondary ones as a compact code list. The principal line marquees when
+// it overflows since the full activity name matters
+func (m Model) renderCAENLines(width int) string {
+	if len(m.caenCodes) == 0 {
 		return ""
 	}
 
 	var primary string
 	var secondary []string
-	for _, c := range codes {
+	for _, c := range m.caenCodes {
 		if c.IsPrimary {
 			primary = fmt.Sprintf("CAEN principal: %s - %s", c.Code, c.Name)
 		} else {
@@ -92,7 +91,7 @@ func renderCAENLines(codes []client.CAENCode, width int) string {
 
 	var b strings.Builder
 	if primary != "" {
-		b.WriteString(SummaryLabelStyle.Render(truncate(primary, width)))
+		b.WriteString(SummaryLabelStyle.Render(marquee(primary, width, m.marqueeOffset)))
 		b.WriteString("\n")
 	}
 	if len(secondary) > 0 {

@@ -377,6 +377,26 @@ func TestDashboardShowsCompanyDetails(t *testing.T) {
 	}
 }
 
+// The CAEN principal line marquees on the dashboard when it overflows
+func TestDashboardCAENMarquees(t *testing.T) {
+	m := NewDemoModel()
+	// Narrow enough that the demo principal name (70+ chars) overflows
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 50, Height: 40})
+	m = updated.(Model)
+	m.activeTab = TabDashboard
+
+	before := m.View()
+	if !strings.Contains(before, "CAEN principal: 6201") {
+		t.Fatal("principal line not at start position before the hold ends")
+	}
+
+	m.marqueeOffset = marqueeHoldTicks + 10
+	after := m.View()
+	if strings.Contains(after, "CAEN principal: 6201") {
+		t.Error("principal line did not slide after the marquee hold")
+	}
+}
+
 // Regression: with enough items to completely fill the viewport, the view
 // must still fit the terminal exactly. The demo lists are short, so this
 // inflates them past any viewport size
