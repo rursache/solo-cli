@@ -63,6 +63,9 @@ func (m Model) View() string {
 	case m.activeTab == TabTaxes:
 		helpText = "←/→ tabs • ↑/↓ scroll • [ and ] switch year • r refresh • q quit"
 	}
+	if m.debugMouse && m.lastMouse != "" {
+		helpText = m.lastMouse
+	}
 	help := HelpStyle.Render(helpText)
 
 	content := b.String()

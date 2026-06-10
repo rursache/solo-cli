@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"os"
+
 	"solo-cli/client"
 	"solo-cli/config"
 	"solo-cli/taxes"
@@ -79,6 +81,8 @@ type Model struct {
 	taxesLines     int  // Total line count of taxes content
 	fetchingMore   bool // A next-page fetch is in flight
 	demoMode       bool
+	debugMouse     bool   // SOLO_MOUSE_DEBUG=1, show raw mouse events
+	lastMouse      string // Last mouse event, for the debug overlay
 
 	pageSize int
 }
@@ -125,6 +129,7 @@ func NewModel(c *client.Client, pageSize int) Model {
 		pageSize:     pageSize,
 		viewportSize: 10, // Fallback until the first WindowSizeMsg arrives
 		taxConfig:    taxCfg,
+		debugMouse:   os.Getenv("SOLO_MOUSE_DEBUG") != "",
 	}
 }
 
@@ -143,6 +148,7 @@ func NewDemoModel() Model {
 		demoMode:     true,
 		year:         demoSummary.Year,
 		maxYear:      demoSummary.Year,
+		debugMouse:   os.Getenv("SOLO_MOUSE_DEBUG") != "",
 		taxConfig:    taxCfg,
 		taxBreakdown: taxBreakdown,
 		// Pre-populate with demo data

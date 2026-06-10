@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -252,6 +253,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.fetchQueue
 
 	case tea.MouseMsg:
+		if m.debugMouse {
+			m.lastMouse = fmt.Sprintf("mouse x=%d y=%d button=%d action=%d width=%d", msg.X, msg.Y, msg.Button, msg.Action, m.width)
+		}
 		switch {
 		case msg.Button == tea.MouseButtonWheelUp:
 			m.scrollUp()
