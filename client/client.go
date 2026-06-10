@@ -10,10 +10,10 @@ import (
 	"net/http/cookiejar"
 )
 
-const (
-	baseURL   = "https://falcon.solo.ro"
-	loginPath = "/api/security/login"
-)
+// baseURL is a var so tests can point the client at a mock server
+var baseURL = "https://falcon.solo.ro"
+
+const loginPath = "/api/security/login"
 
 // Client wraps an HTTP client with cookie storage for SOLO.ro API
 type Client struct {
