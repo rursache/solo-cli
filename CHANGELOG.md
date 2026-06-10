@@ -1,6 +1,7 @@
 ## [Unreleased]
 
 ### Added
+- **List paging**: lists are no longer capped at `page_size` items. Scrolling near the end of the loaded items fetches the next page automatically and the status line shows the real server-reported total
 - **List search**: press `/` on the Revenues, Expenses, e-Factura or Queue tab to filter server-side (the API's native search). Enter applies, Esc cancels the input or clears an applied filter, and the active filter stays visible in the status line
 - **Year switcher**: press `[` and `]` on the Dashboard or Taxes tab to view previous years, like `solo-cli summary 2025` on the CLI. Bounded by the current fiscal year
 - **Richer Dashboard**: shows the company address, the CAEN codes (principal with full name, secundare as a code list) and the net income (revenues - expenses) in the summary box. The `company` CLI command also lists the CAEN codes

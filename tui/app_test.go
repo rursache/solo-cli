@@ -214,6 +214,75 @@ func TestSummarySetsYearBounds(t *testing.T) {
 	}
 }
 
+// Scrolling near the end of the loaded items must trigger a next-page
+// fetch when the server reports more, and the page must append
+func TestListPaging(t *testing.T) {
+	m := NewDemoModel()
+	m.demoMode = false
+	m.activeTab = TabRevenues
+	// Height 18 -> viewport 7, so the prefetch threshold for 20 loaded
+	// items sits at cursor 13
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 18})
+	m = updated.(Model)
+
+	// 20 loaded items, server says 50 exist
+	total := 50
+	m.revenues.Items = m.revenues.Items[:1]
+	for len(m.revenues.Items) < 20 {
+		m.revenues.Items = append(m.revenues.Items, m.revenues.Items[0])
+	}
+	m.revenues.TotalResults = &total
+
+	// The status line must show the real total, not the loaded count
+	if view := m.View(); !strings.Contains(view, "of 50") {
+		t.Error("status line does not show the server-reported total")
+	}
+
+	// Scroll down: no fetch while far from the end
+	updated, cmd := m.Update(keyMsg("j"))
+	m = updated.(Model)
+	if cmd != nil {
+		t.Fatal("fetch triggered too early")
+	}
+
+	// Jump close to the end: within one viewport of item 20
+	m.cursor = 12
+	updated, cmd = m.Update(keyMsg("j"))
+	m = updated.(Model)
+	if cmd == nil {
+		t.Fatal("no next-page fetch near the end of loaded items")
+	}
+	if !m.fetchingMore {
+		t.Fatal("fetchingMore not set")
+	}
+
+	// No duplicate fetch while one is in flight
+	updated, cmd = m.Update(keyMsg("k"))
+	m = updated.(Model)
+	updated, cmd = m.Update(keyMsg("j"))
+	m = updated.(Model)
+	if cmd != nil {
+		t.Error("duplicate page fetch while one is in flight")
+	}
+
+	// The page appends instead of replacing
+	page := &client.RevenueListResponse{
+		Items:        []client.Revenue{{SerialCode: "PAGE-2", ClientName: "Second Page"}},
+		TotalResults: &total,
+	}
+	updated, _ = m.Update(revenuesPageMsg(page))
+	m = updated.(Model)
+	if len(m.revenues.Items) != 21 {
+		t.Errorf("items after page = %d, want 21 (appended)", len(m.revenues.Items))
+	}
+	if m.fetchingMore {
+		t.Error("fetchingMore not cleared after the page arrived")
+	}
+	if m.revenues.Items[20].SerialCode != "PAGE-2" {
+		t.Errorf("page items not appended at the end: %+v", m.revenues.Items[20])
+	}
+}
+
 // The / search captures typing (q must not quit), applies on enter with a
 // refetch and clears on esc
 func TestSearchFlow(t *testing.T) {

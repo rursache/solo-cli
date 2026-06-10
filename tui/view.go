@@ -162,7 +162,9 @@ func (m Model) renderList(total int, header string, row func(i int) string) stri
 	var b strings.Builder
 	size := m.tabViewportSize()
 
-	b.WriteString(m.listStatusLine(fmt.Sprintf("Showing %d-%d of %d", m.viewportOffset+1, min(m.viewportOffset+size, total), total)))
+	// total is the loaded item count; the server may report more available
+	_, available := m.loadedAndTotal()
+	b.WriteString(m.listStatusLine(fmt.Sprintf("Showing %d-%d of %d", m.viewportOffset+1, min(m.viewportOffset+size, total), available)))
 	b.WriteString("\n\n")
 
 	b.WriteString(TableHeaderStyle.Render(header))

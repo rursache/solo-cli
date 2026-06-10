@@ -74,15 +74,12 @@ type Model struct {
 	marqueeOffset  int    // Scroll position of the focused row's marquee
 	viewportOffset int // First visible item index
 	viewportSize   int // Number of visible items
-	taxesScroll    int // Scroll offset for taxes tab
-	taxesLines     int // Total line count of taxes content
+	taxesScroll    int  // Scroll offset for taxes tab
+	taxesLines     int  // Total line count of taxes content
+	fetchingMore   bool // A next-page fetch is in flight
 	demoMode       bool
 
-	// Pagination
-	revenueOffset int
-	expenseOffset int
-	queueOffset   int
-	pageSize      int
+	pageSize int
 }
 
 // Messages
@@ -96,6 +93,12 @@ type queueMsg *client.QueuedExpenseResponse
 type efacturaMsg *client.EFacturaListResponse
 type errMsg error
 type deleteSuccessMsg struct{}
+
+// Page messages append to the already loaded list instead of replacing it
+type revenuesPageMsg *client.RevenueListResponse
+type expensesPageMsg *client.ExpenseListResponse
+type queuePageMsg *client.QueuedExpenseResponse
+type efacturaPageMsg *client.EFacturaListResponse
 
 func newSpinner() spinner.Model {
 	s := spinner.New()

@@ -90,7 +90,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "up", "k":
 			m.scrollUp()
 		case "down", "j":
-			m.scrollDown()
+			return m, m.scrollDown()
 		case "/":
 			if m.isListTab() && !m.demoMode {
 				m.searching = true
@@ -192,9 +192,38 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.efactura = msg
 		m.checkLoadingDone()
 
+	case revenuesPageMsg:
+		if m.revenues != nil && msg != nil {
+			m.revenues.Items = append(m.revenues.Items, msg.Items...)
+			m.revenues.TotalResults = msg.TotalResults
+		}
+		m.fetchingMore = false
+
+	case expensesPageMsg:
+		if m.expenses != nil && msg != nil {
+			m.expenses.Items = append(m.expenses.Items, msg.Items...)
+			m.expenses.TotalResults = msg.TotalResults
+		}
+		m.fetchingMore = false
+
+	case queuePageMsg:
+		if m.queue != nil && msg != nil {
+			m.queue.Items = append(m.queue.Items, msg.Items...)
+			m.queue.TotalResults = msg.TotalResults
+		}
+		m.fetchingMore = false
+
+	case efacturaPageMsg:
+		if m.efactura != nil && msg != nil {
+			m.efactura.Items = append(m.efactura.Items, msg.Items...)
+			m.efactura.TotalResults = msg.TotalResults
+		}
+		m.fetchingMore = false
+
 	case errMsg:
 		m.err = msg
 		m.loading = false
+		m.fetchingMore = false
 
 	case deleteSuccessMsg:
 		m.loading = true
@@ -206,7 +235,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case msg.Button == tea.MouseButtonWheelUp:
 			m.scrollUp()
 		case msg.Button == tea.MouseButtonWheelDown:
-			m.scrollDown()
+			return m, m.scrollDown()
 		case msg.Button == tea.MouseButtonLeft && msg.Action == tea.MouseActionPress:
 			return m, m.handleClick(msg.X, msg.Y)
 		}
@@ -272,7 +301,7 @@ func (m *Model) scrollUp() {
 	}
 }
 
-func (m *Model) scrollDown() {
+func (m *Model) scrollDown() tea.Cmd {
 	if m.activeTab == TabTaxes {
 		// Must match the viewport math in renderTaxesViewport
 		availHeight := m.bodyHeight() - 1
@@ -283,17 +312,19 @@ func (m *Model) scrollDown() {
 		if m.taxesScroll < maxScroll {
 			m.taxesScroll++
 		}
-	} else {
-		maxCursor := m.getMaxCursor()
-		if m.cursor < maxCursor-1 {
-			m.cursor++
-			m.marqueeOffset = 0
-			size := m.tabViewportSize()
-			if m.cursor >= m.viewportOffset+size {
-				m.viewportOffset = m.cursor - size + 1
-			}
+		return nil
+	}
+
+	maxCursor := m.getMaxCursor()
+	if m.cursor < maxCursor-1 {
+		m.cursor++
+		m.marqueeOffset = 0
+		size := m.tabViewportSize()
+		if m.cursor >= m.viewportOffset+size {
+			m.viewportOffset = m.cursor - size + 1
 		}
 	}
+	return m.maybeFetchMore()
 }
 
 func (m *Model) checkLoadingDone() {

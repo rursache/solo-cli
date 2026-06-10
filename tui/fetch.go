@@ -48,7 +48,7 @@ func (m Model) searchFor(tab Tab) string {
 }
 
 func (m Model) fetchRevenues() tea.Msg {
-	revenues, err := m.client.ListRevenues(m.revenueOffset, m.pageSize, m.searchFor(TabRevenues))
+	revenues, err := m.client.ListRevenues(0, m.pageSize, m.searchFor(TabRevenues))
 	if err != nil {
 		return errMsg(err)
 	}
@@ -56,7 +56,7 @@ func (m Model) fetchRevenues() tea.Msg {
 }
 
 func (m Model) fetchExpenses() tea.Msg {
-	expenses, err := m.client.ListExpenses(m.expenseOffset, m.pageSize, m.searchFor(TabExpenses))
+	expenses, err := m.client.ListExpenses(0, m.pageSize, m.searchFor(TabExpenses))
 	if err != nil {
 		return errMsg(err)
 	}
@@ -73,7 +73,7 @@ func (m Model) fetchRejected() tea.Msg {
 }
 
 func (m Model) fetchQueue() tea.Msg {
-	queue, err := m.client.ListQueuedExpenses(m.queueOffset, m.pageSize, m.searchFor(TabQueue))
+	queue, err := m.client.ListQueuedExpenses(0, m.pageSize, m.searchFor(TabQueue))
 	if err != nil {
 		return errMsg(err)
 	}
@@ -99,6 +99,86 @@ func (m Model) fetchActiveList() tea.Cmd {
 		return m.fetchEFactura
 	case TabQueue:
 		return m.fetchQueue
+	}
+	return nil
+}
+
+// loadedAndTotal returns how many items the active tab has loaded and the
+// server-reported total (equal to loaded when the API omits TotalResults)
+func (m Model) loadedAndTotal() (int, int) {
+	var loaded int
+	var total *int
+	switch m.activeTab {
+	case TabRevenues:
+		if m.revenues != nil {
+			loaded, total = len(m.revenues.Items), m.revenues.TotalResults
+		}
+	case TabExpenses:
+		if m.expenses != nil {
+			loaded, total = len(m.expenses.Items), m.expenses.TotalResults
+		}
+	case TabEFactura:
+		if m.efactura != nil {
+			loaded, total = len(m.efactura.Items), m.efactura.TotalResults
+		}
+	case TabQueue:
+		if m.queue != nil {
+			loaded, total = len(m.queue.Items), m.queue.TotalResults
+		}
+	}
+	if total != nil && *total > loaded {
+		return loaded, *total
+	}
+	return loaded, loaded
+}
+
+// maybeFetchMore starts a next-page fetch when the cursor gets within one
+// viewport of the end of the loaded items and the server has more
+func (m *Model) maybeFetchMore() tea.Cmd {
+	if m.fetchingMore || m.demoMode || !m.isListTab() {
+		return nil
+	}
+	loaded, total := m.loadedAndTotal()
+	if loaded >= total || m.cursor < loaded-m.tabViewportSize() {
+		return nil
+	}
+	m.fetchingMore = true
+
+	offset, pageSize := loaded, m.pageSize
+	c, tab, search := m.client, m.activeTab, m.searchQuery
+	switch tab {
+	case TabRevenues:
+		return func() tea.Msg {
+			resp, err := c.ListRevenues(offset, pageSize, search)
+			if err != nil {
+				return errMsg(err)
+			}
+			return revenuesPageMsg(resp)
+		}
+	case TabExpenses:
+		return func() tea.Msg {
+			resp, err := c.ListExpenses(offset, pageSize, search)
+			if err != nil {
+				return errMsg(err)
+			}
+			return expensesPageMsg(resp)
+		}
+	case TabEFactura:
+		return func() tea.Msg {
+			resp, err := c.ListEFactura(offset, pageSize, search)
+			if err != nil {
+				return errMsg(err)
+			}
+			return efacturaPageMsg(resp)
+		}
+	case TabQueue:
+		return func() tea.Msg {
+			resp, err := c.ListQueuedExpenses(offset, pageSize, search)
+			if err != nil {
+				return errMsg(err)
+			}
+			return queuePageMsg(resp)
+		}
 	}
 	return nil
 }
