@@ -9,17 +9,21 @@ import (
 	"solo-cli/taxes"
 )
 
-func runSummary(c *client.Client, args []string) {
-	// Parse optional year argument
-	year := 0
-	if len(args) > 0 {
-		if _, err := fmt.Sscanf(args[0], "%d", &year); err != nil {
-			fmt.Fprintf(os.Stderr, "Invalid year: %s\n", args[0])
-			os.Exit(1)
-		}
+// parseYearArg reads an optional year argument, 0 meaning current year
+func parseYearArg(args []string) int {
+	if len(args) == 0 {
+		return 0
 	}
+	year := 0
+	if _, err := fmt.Sscanf(args[0], "%d", &year); err != nil {
+		fmt.Fprintf(os.Stderr, "Invalid year: %s\n", args[0])
+		os.Exit(1)
+	}
+	return year
+}
 
-	summary, err := c.GetSummaryForYear(year)
+func runSummary(c *client.Client, args []string) {
+	summary, err := c.GetSummaryForYear(parseYearArg(args))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
@@ -137,16 +141,7 @@ func runCompany(c *client.Client) {
 }
 
 func runTaxes(c *client.Client, args []string) {
-	// Parse optional year argument
-	year := 0
-	if len(args) > 0 {
-		if _, err := fmt.Sscanf(args[0], "%d", &year); err != nil {
-			fmt.Fprintf(os.Stderr, "Invalid year: %s\n", args[0])
-			os.Exit(1)
-		}
-	}
-
-	summary, err := c.GetSummaryForYear(year)
+	summary, err := c.GetSummaryForYear(parseYearArg(args))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
