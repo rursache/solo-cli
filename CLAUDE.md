@@ -7,6 +7,7 @@ solo-cli is a Go CLI and terminal UI (TUI) application for [SOLO.ro](https://sol
 Key capabilities:
 - View dashboard summary (revenues, expenses, taxes per year)
 - List and browse revenues/invoices, expenses, queued documents, and e-Factura (national electronic invoicing)
+- Calculate CAS/CASS/income tax breakdown with bracket thresholds and surplus hints
 - Upload expense documents (PDF, images) to the processing queue
 - Delete queued expense documents
 - Cookie-based session persistence for fast re-authentication
@@ -24,6 +25,9 @@ solo-cli/
   go.mod / go.sum      - Go module definition (module name: solo-cli)
   config/
     config.go          - Config loading/saving, path resolution, validation
+    taxes.go           - TaxConfig/TaxThreshold types, DefaultTaxConfig(), LoadTaxes(), EnsureTaxesExists()
+  taxes/
+    taxes.go           - Tax calculation engine: Calculate(), ThresholdResult, TaxBreakdown, format helpers
   client/
     client.go          - HTTP client with cookie jar, Login(), GetSummary()
     cookies.go         - Cookie persistence (save/load/clear from disk)
@@ -86,10 +90,23 @@ List endpoints accept JSON bodies with `StartIndex`, `MaxResults`, `SearchText`,
 
 The TUI is built with [Bubble Tea](https://github.com/charmbracelet/bubbletea) (Elm-architecture pattern) and [Lip Gloss](https://github.com/charmbracelet/lipgloss) for styling.
 
-- **Tabs**: Dashboard, Revenues, Expenses, e-Factura, Queue
+- **Tabs**: Dashboard, Revenues, Expenses, e-Factura, Queue, Taxes
 - **Navigation**: Tab/arrow keys switch tabs, j/k or arrow keys navigate lists, `d` deletes in Queue tab, `r` refreshes all data
 - **Data loading**: All data is fetched concurrently on init via `tea.Batch`. Loading is complete when summary, revenues, expenses, rejected, queue, and efactura data are all present.
+- **Taxes tab**: Scrollable view of the full tax breakdown (CAS, CASS, income tax, totals, effective rate, threshold buffers, and surplus hints). Scroll with j/k or arrow keys.
 - **Viewport scrolling**: Lists use a manual viewport (offset + size) rather than the Bubble Tea viewport component.
+
+### Tax Calculator
+
+The tax calculator (`taxes/taxes.go`) computes CAS, CASS, and income tax for Romanian PFA freelancers.
+
+- **Entry point**: `taxes.Calculate(totalRevenues, totalExpenses float64, cfg *config.TaxConfig) *TaxBreakdown`
+- **Net income** = revenues - expenses. CAS and CASS are each computed via bracket logic keyed on multiples of `salariu minim brut` (SMB).
+- **Bracket logic**: Each `TaxThreshold` defines `MinSalaries`/`MaxSalaries` (bounds in multiples of SMB), `BaseSalaries` (what percentage is applied to — `0` = exempt, `-1` = proportional/actual net income, positive = fixed multiple of SMB), and a `Label`.
+- **Threshold buffers**: Each result includes `BufferToNext` (how much more net income before crossing into the next bracket) and `NextLabel`.
+- **Surplus hint** (v1.5.1): When net income has already crossed a bracket boundary, `ExpensesToPrev` and `PrevLabel` are populated to show how much in additional deductible expenses would drop the taxpayer back into the cheaper bracket. The hint is only surfaced when the contribution saving exceeds the required expense (fires for CAS; suppressed for CASS when dropping a bracket would be a net loss).
+- **Income tax** = `IncomeTaxPercent` % of (net income - CAS - CASS).
+- `TaxBreakdown` also exposes `TotalTaxes`, `NetAfterTax`, and `EffectiveRate`.
 
 ### Version Injection
 
@@ -112,12 +129,21 @@ go build -o solo-cli .
 ./solo-cli              # Launch interactive TUI
 ./solo-cli summary      # CLI: current year summary
 ./solo-cli revenues     # CLI: list revenues
+./solo-cli taxes        # CLI: tax breakdown for current year (alias: tax)
+./solo-cli taxes 2025   # CLI: tax breakdown for a specific year
 ./solo-cli demo         # TUI with mock data (no credentials needed)
 ```
 
 ### Test
 
-There are currently no automated tests in this project. Manual testing is done by building and running the CLI commands or TUI against the live SOLO.ro API, or using `solo-cli demo` for TUI testing without credentials.
+```bash
+go test ./...                     # Offline unit tests (no credentials needed)
+go test -tags live ./client -v    # Live integration tests against SOLO.ro
+```
+
+- **Offline tests**: `taxes/taxes_test.go` (tax math), `config/config_test.go` (config and taxes.json loading), `client/client_test.go` (all API client paths against an httptest mock server, including login, lists, upload, company discovery, and cookie persistence). The `baseURL` in `client/client.go` is a var so tests can redirect it.
+- **Live tests** (`client/live_test.go`, build tag `live`): authenticate with the developer's own `~/.config/solo-cli/config.json` (reusing saved cookies like the CLI does) and exercise read-only endpoints. They never upload or delete anything. Skipped automatically if no valid config exists.
+- TUI testing remains manual via `solo-cli demo`.
 
 ### Dependencies
 
@@ -193,6 +219,26 @@ File is created with permissions 0600 (owner read/write only).
 Location: `~/.config/solo-cli/cookies.json`
 
 Stores serialized HTTP cookies (name, value, domain, path, expires) from the SOLO.ro session. Also created with 0600 permissions. Loaded and validated on each run to avoid unnecessary re-authentication.
+
+### Taxes Config File
+
+Location: `~/.config/solo-cli/taxes.json`
+
+Auto-generated with defaults on first use of any taxes feature (CLI or TUI). Safe to edit manually to adjust thresholds, percentages, or the minimum gross salary for a given year.
+
+```json
+{
+  "year": 2026,
+  "salariu_minim_brut": 4325,
+  "income_tax_percent": 10,
+  "cas_percent": 25,
+  "cas_thresholds": [...],
+  "cass_percent": 10,
+  "cass_thresholds": [...]
+}
+```
+
+Each threshold entry has `min_salaries`, `max_salaries`, `base_salaries`, and `label`. `base_salaries` values: `0` = exempt, `-1` = proportional (actual net income), positive = fixed multiple of SMB. Created with 0644 permissions.
 
 ## Code Conventions
 
