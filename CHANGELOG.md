@@ -1,3 +1,8 @@
+## [Unreleased]
+
+### Fixed
+- **Revenue/expense summary client types**: the `/revenues/summary` and `/expenses/summary` API endpoints return document counts, not monetary totals. The client mapped a nonexistent `TotalAmount` field that silently decoded to 0 (latent, nothing user-facing consumed it). The types are now `RevenueCounts`/`ExpenseCounts` with the real fields, caught by the new live schema tests
+
 ## [1.6.0]
 
 ### Added

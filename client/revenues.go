@@ -57,9 +57,12 @@ type RevenueListResponse struct {
 	TotalResults *int      `json:"TotalResults"`
 }
 
-// RevenueSummary represents revenue summary response
-type RevenueSummary struct {
-	TotalAmount float64 `json:"TotalAmount"`
+// RevenueCounts represents the revenues summary response, which holds
+// document counts, not monetary totals
+type RevenueCounts struct {
+	RegisteredRevenues int `json:"RegisteredRevenues"`
+	QueuedRevenues     int `json:"QueuedRevenues"`
+	RejectedRevenues   int `json:"RejectedRevenues"`
 }
 
 // ListRevenues fetches the list of revenues/invoices
@@ -80,16 +83,16 @@ func (c *Client) ListRevenues(startIndex, maxResults int) (*RevenueListResponse,
 	return &result, nil
 }
 
-// GetRevenueSummary fetches revenue summary for a given year
-func (c *Client) GetRevenueSummary(year int) (*RevenueSummary, error) {
+// GetRevenueCounts fetches revenue document counts for a given year
+func (c *Client) GetRevenueCounts(year int) (*RevenueCounts, error) {
 	path := "/proxy/accounting/revenues/summary"
 	if year > 0 {
 		path = fmt.Sprintf("%s?year=%d", path, year)
 	}
 
-	var result RevenueSummary
+	var result RevenueCounts
 	if err := c.doJSON("GET", path, "/", nil, &result); err != nil {
-		return nil, fmt.Errorf("failed to get revenue summary: %w", err)
+		return nil, fmt.Errorf("failed to get revenue counts: %w", err)
 	}
 	return &result, nil
 }

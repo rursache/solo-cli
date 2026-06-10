@@ -30,9 +30,12 @@ type ExpenseListResponse struct {
 	TotalResults *int      `json:"TotalResults"`
 }
 
-// ExpenseSummary represents expense summary response
-type ExpenseSummary struct {
-	TotalAmount float64 `json:"TotalAmount"`
+// ExpenseCounts represents the expenses summary response, which holds
+// document counts, not monetary totals
+type ExpenseCounts struct {
+	RegisteredExpenses int `json:"RegisteredExpenses"`
+	QueuedExpenses     int `json:"QueuedExpenses"`
+	RejectedExpenses   int `json:"RejectedExpenses"`
 }
 
 // QueuedExpense represents a document in the expense queue
@@ -81,16 +84,16 @@ func (c *Client) ListExpenses(startIndex, maxResults int) (*ExpenseListResponse,
 	return &result, nil
 }
 
-// GetExpenseSummary fetches expense summary for a given year
-func (c *Client) GetExpenseSummary(year int) (*ExpenseSummary, error) {
+// GetExpenseCounts fetches expense document counts for a given year
+func (c *Client) GetExpenseCounts(year int) (*ExpenseCounts, error) {
 	path := "/proxy/accounting/expenses/summary"
 	if year > 0 {
 		path = fmt.Sprintf("%s?year=%d", path, year)
 	}
 
-	var result ExpenseSummary
+	var result ExpenseCounts
 	if err := c.doJSON("GET", path, "/", nil, &result); err != nil {
-		return nil, fmt.Errorf("failed to get expense summary: %w", err)
+		return nil, fmt.Errorf("failed to get expense counts: %w", err)
 	}
 	return &result, nil
 }
