@@ -164,9 +164,8 @@ func (m Model) renderList(total int, header string, row func(i int) string) stri
 
 	// total is the loaded item count; the server may report more available
 	_, available := m.loadedAndTotal()
-	b.WriteString(SummaryLabelStyle.Render(fmt.Sprintf("Showing %d-%d of %d", m.viewportOffset+1, min(m.viewportOffset+size, total), available)))
-	b.WriteString("\n")
-	b.WriteString(m.renderSearchBar())
+	showing := fmt.Sprintf("Showing %d-%d of %d", m.viewportOffset+1, min(m.viewportOffset+size, total), available)
+	b.WriteString(m.searchAndShowingLine(showing))
 	b.WriteString("\n\n")
 
 	b.WriteString(TableHeaderStyle.Render(header))
@@ -199,6 +198,18 @@ func (m Model) renderSearchBar() string {
 	default:
 		return label + SummaryLabelStyle.Render("press / or click here to filter")
 	}
+}
+
+// searchAndShowingLine combines the search bar (left) and the result
+// counter (right aligned) on a single line. The counter yields when a
+// long search input needs the space
+func (m Model) searchAndShowingLine(showing string) string {
+	search := m.renderSearchBar()
+	gap := m.width - lipgloss.Width(search) - len(showing) - 1
+	if gap < 2 {
+		return search
+	}
+	return search + strings.Repeat(" ", gap) + SummaryLabelStyle.Render(showing)
 }
 
 // emptyList renders the empty state, keeping the search bar visible so a

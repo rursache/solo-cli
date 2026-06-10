@@ -14,12 +14,11 @@ const (
 	// tabsRowY is the screen row of the tab bar: title line, its margin and
 	// one blank line above it
 	tabsRowY = 3
-	// searchBarRowY is the search bar row on list tabs: tab bar chrome (5)
-	// plus the showing line (1)
-	searchBarRowY = 6
+	// searchBarRowY is the combined search/showing line, the first body row
+	searchBarRowY = 5
 	// listRowsStartY is where table rows begin on list tabs: tab bar chrome
-	// (5), showing line (1), search bar with blank (2), header with border (2)
-	listRowsStartY = 10
+	// (5), search/showing line with blank (2), header with border (2)
+	listRowsStartY = 9
 )
 
 // listChromeShift is how far the list layout is pushed down by content

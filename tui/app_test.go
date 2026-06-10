@@ -74,9 +74,9 @@ func TestViewportAdaptsToHeight(t *testing.T) {
 		updated, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: height})
 		m = updated.(Model)
 
-		// bodyHeight (height - 7) minus the list chrome (showing line,
-		// search bar and table header)
-		want := height - 12
+		// bodyHeight (height - 7) minus the list chrome (combined
+		// search/showing line and table header)
+		want := height - 11
 		if want < 3 {
 			want = 3
 		}
@@ -316,8 +316,8 @@ func TestListPaging(t *testing.T) {
 	m := NewDemoModel()
 	m.demoMode = false
 	m.activeTab = TabRevenues
-	// Height 18 -> viewport 6, so the prefetch threshold for 20 loaded
-	// items sits at cursor 14
+	// Height 18 -> viewport 7, so the prefetch threshold for 20 loaded
+	// items sits at cursor 13
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 18})
 	m = updated.(Model)
 
@@ -329,9 +329,20 @@ func TestListPaging(t *testing.T) {
 	}
 	m.revenues.TotalResults = &total
 
-	// The status line must show the real total, not the loaded count
-	if view := m.View(); !strings.Contains(view, "of 50") {
+	// The combined line must show the real total right aligned alongside
+	// the search bar
+	view := m.View()
+	if !strings.Contains(view, "of 50") {
 		t.Error("status line does not show the server-reported total")
+	}
+	for _, line := range strings.Split(view, "\n") {
+		plain := stripANSI(line)
+		if strings.Contains(plain, "Search:") {
+			if !strings.Contains(plain, "of 50") {
+				t.Error("search bar and result counter are not on the same line")
+			}
+			break
+		}
 	}
 
 	// Scroll down: no fetch while far from the end
@@ -342,7 +353,7 @@ func TestListPaging(t *testing.T) {
 	}
 
 	// Jump close to the end: within one viewport of item 20
-	m.cursor = 13
+	m.cursor = 12
 	updated, cmd = m.Update(keyMsg("j"))
 	m = updated.(Model)
 	if cmd == nil {

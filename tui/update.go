@@ -145,10 +145,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		// Fit the list viewport to the body: showing line (1), search bar
+		// Fit the list viewport to the body: combined search/showing line
 		// with blank (2) and table header with border (2) are the list's
 		// own chrome
-		m.viewportSize = m.bodyHeight() - 5
+		m.viewportSize = m.bodyHeight() - 4
 		if m.viewportSize < 3 {
 			m.viewportSize = 3
 		}
