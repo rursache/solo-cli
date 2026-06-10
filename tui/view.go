@@ -19,8 +19,14 @@ func (m Model) View() string {
 	b.WriteString(AppTitleStyle.Render("SOLO.ro CLI"))
 	b.WriteString("\n\n")
 
-	// Tabs
-	b.WriteString(m.renderTabs())
+	// Tabs row with the quit button right aligned. Not on the title row:
+	// terminals with overlay titlebars swallow clicks on the top row
+	tabs := m.renderTabs()
+	quit := SummaryLabelStyle.Render(quitLabel)
+	if gap := m.width - lipgloss.Width(tabs) - lipgloss.Width(quit) - 1; gap > 0 {
+		tabs += strings.Repeat(" ", gap) + quit
+	}
+	b.WriteString(tabs)
 	b.WriteString("\n\n")
 
 	// Loading state
@@ -61,13 +67,7 @@ func (m Model) View() string {
 	if m.debugMouse && m.lastMouse != "" {
 		helpText = m.lastMouse
 	}
-	// The quit button lives on the help row, right aligned. The top row is
-	// unusable: terminals with overlay titlebars swallow clicks there
 	help := HelpStyle.Render(helpText)
-	quit := SummaryLabelStyle.Render(quitLabel)
-	if gap := m.width - lipgloss.Width(help) - lipgloss.Width(quit) - 1; gap > 0 {
-		help += strings.Repeat(" ", gap) + quit
-	}
 
 	content := b.String()
 	if m.height > 0 {

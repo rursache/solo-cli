@@ -482,7 +482,7 @@ func TestSearchFlow(t *testing.T) {
 	}
 }
 
-// The help row hosts a clickable quit button on the right edge. It must
+// The tabs row hosts a clickable quit button on the right edge. It must
 // NOT be on the top row: terminals with overlay titlebars (iTerm2 minimal
 // theme, Ghostty) swallow clicks there
 func TestQuitButton(t *testing.T) {
@@ -494,13 +494,12 @@ func TestQuitButton(t *testing.T) {
 	if strings.Contains(lines[0], "quit") {
 		t.Fatal("quit button must not be on the top row (overlay titlebars eat clicks there)")
 	}
-	lastLine := lines[len(lines)-1]
-	if !strings.Contains(lastLine, quitLabel) {
-		t.Fatal("quit button not on the help row")
+	if !strings.Contains(lines[tabsRowY], quitLabel) {
+		t.Fatal("quit button not on the tabs row")
 	}
 
-	// Clicking its zone on the last row quits
-	_, cmd := m.Update(tea.MouseMsg{X: 95, Y: 29, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress})
+	// Clicking its zone on the tabs row quits
+	_, cmd := m.Update(tea.MouseMsg{X: 95, Y: tabsRowY, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress})
 	if cmd == nil {
 		t.Fatal("clicking the quit button must return a command")
 	}
@@ -508,10 +507,14 @@ func TestQuitButton(t *testing.T) {
 		t.Error("quit button click must produce tea.QuitMsg")
 	}
 
-	// Clicking the help text itself must not quit
-	_, cmd = m.Update(tea.MouseMsg{X: 5, Y: 29, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress})
+	// Clicking a tab on the same row must still switch tabs, not quit
+	updated, cmd = m.Update(tea.MouseMsg{X: 16, Y: tabsRowY, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress})
+	m = updated.(Model)
 	if cmd != nil {
-		t.Error("clicking the help text must not quit")
+		t.Error("clicking a tab must not quit")
+	}
+	if m.activeTab != TabRevenues {
+		t.Errorf("tab click on the shared row broken, activeTab %s", m.activeTab)
 	}
 }
 

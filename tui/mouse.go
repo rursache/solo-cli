@@ -30,10 +30,10 @@ func (m Model) listChromeShift() int {
 }
 
 func (m *Model) handleClick(x, y int) tea.Cmd {
-	if cmd := m.clickQuit(x, y); cmd != nil {
-		return cmd
-	}
 	if y == tabsRowY {
+		if cmd := m.clickQuit(x); cmd != nil {
+			return cmd
+		}
 		return m.clickTab(x)
 	}
 	if m.activeTab == TabDashboard {
@@ -84,15 +84,15 @@ func (m *Model) clickYear(x, y int) tea.Cmd {
 	return nil
 }
 
-// clickQuit hit-tests the quit button on the help row (the last terminal
-// line) by locating it in the rendered view, so the zone cannot drift
-// from the layout math
-func (m *Model) clickQuit(x, y int) tea.Cmd {
-	if m.height == 0 || y != m.height-1 {
+// clickQuit hit-tests the quit button at the right end of the tabs row by
+// locating it in the rendered view, so the zone cannot drift from the
+// layout math
+func (m *Model) clickQuit(x int) tea.Cmd {
+	lines := strings.Split(m.View(), "\n")
+	if tabsRowY >= len(lines) {
 		return nil
 	}
-	lines := strings.Split(m.View(), "\n")
-	plain := ansi.Strip(lines[len(lines)-1])
+	plain := ansi.Strip(lines[tabsRowY])
 	idx := strings.Index(plain, quitLabel)
 	if idx < 0 {
 		return nil
