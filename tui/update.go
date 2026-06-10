@@ -60,6 +60,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.scrollUp()
 		case "down", "j":
 			m.scrollDown()
+		case "[":
+			if m.canSwitchYear() && m.year > 2015 {
+				m.year--
+				m.taxesScroll = 0
+				return m, m.fetchSummary
+			}
+		case "]":
+			if m.canSwitchYear() && m.year < m.maxYear {
+				m.year++
+				m.taxesScroll = 0
+				return m, m.fetchSummary
+			}
 		case "r":
 			// Refresh
 			m.loading = true
@@ -94,9 +106,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case summaryMsg:
 		m.summary = msg
-		if m.summary != nil && m.taxConfig != nil {
-			m.taxBreakdown = taxes.Calculate(m.summary.TotalRevenues, m.summary.TotalDeductibleExpenses, m.taxConfig)
-			m.taxesLines = len(strings.Split(m.renderTaxes(), "\n"))
+		if m.summary != nil {
+			// The first summary establishes the current fiscal year, the
+			// upper bound for [ and ] year switching
+			if m.maxYear == 0 {
+				m.maxYear = m.summary.Year
+			}
+			m.year = m.summary.Year
+			if m.taxConfig != nil {
+				m.taxBreakdown = taxes.Calculate(m.summary.TotalRevenues, m.summary.TotalDeductibleExpenses, m.taxConfig)
+				m.taxesLines = len(strings.Split(m.renderTaxes(), "\n"))
+			}
 		}
 		m.checkLoadingDone()
 
@@ -158,6 +178,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, nil
+}
+
+// canSwitchYear limits [ and ] to the year-scoped tabs. Demo mode has no
+// API to refetch from and the bound is unknown until the first summary
+func (m Model) canSwitchYear() bool {
+	return (m.activeTab == TabDashboard || m.activeTab == TabTaxes) && !m.demoMode && m.year > 0
 }
 
 // setTab switches the active tab and resets per-tab navigation state

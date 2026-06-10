@@ -7,7 +7,7 @@ import (
 )
 
 func (m Model) fetchSummary() tea.Msg {
-	summary, err := m.client.GetSummary()
+	summary, err := m.client.GetSummaryForYear(m.year)
 	if err != nil {
 		return errMsg(err)
 	}

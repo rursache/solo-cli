@@ -48,8 +48,13 @@ func (m Model) View() string {
 
 	// Help, pinned to the bottom row of the terminal
 	helpText := "←/→ tabs • ↑/↓ navigate • r refresh • q quit"
-	if m.activeTab == TabQueue {
+	switch m.activeTab {
+	case TabQueue:
 		helpText = "←/→ tabs • ↑/↓ navigate • d delete • r refresh • q quit"
+	case TabDashboard:
+		helpText = "←/→ tabs • [/] year • r refresh • q quit"
+	case TabTaxes:
+		helpText = "←/→ tabs • ↑/↓ scroll • [/] year • r refresh • q quit"
 	}
 	help := HelpStyle.Render(helpText)
 

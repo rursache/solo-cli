@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	"solo-cli/client"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -138,6 +140,77 @@ func TestTaxesViewportUsesFullHeight(t *testing.T) {
 	// Expected tail: hint, padding row, help margin row, help text
 	if gap := len(lines) - 1 - hintIdx; gap > 3 {
 		t.Errorf("%d rows between scroll hint and help bar, want at most 3 (dead space)", gap)
+	}
+}
+
+func keyMsg(s string) tea.KeyMsg {
+	return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(s)}
+}
+
+// The [ and ] keys switch the displayed year on Dashboard and Taxes,
+// bounded by the current fiscal year, and trigger a summary refetch
+func TestYearSwitcher(t *testing.T) {
+	m := NewDemoModel()
+	m.demoMode = false // demo mode has no API to refetch from
+	m.year, m.maxYear = 2026, 2026
+	m.activeTab = TabDashboard
+
+	updated, cmd := m.Update(keyMsg("["))
+	m = updated.(Model)
+	if m.year != 2025 {
+		t.Errorf("year after [ = %d, want 2025", m.year)
+	}
+	if cmd == nil {
+		t.Error("[ must trigger a summary refetch")
+	}
+
+	updated, cmd = m.Update(keyMsg("]"))
+	m = updated.(Model)
+	if m.year != 2026 {
+		t.Errorf("year after ] = %d, want 2026", m.year)
+	}
+
+	// Cannot go past the current fiscal year
+	updated, cmd = m.Update(keyMsg("]"))
+	m = updated.(Model)
+	if m.year != 2026 || cmd != nil {
+		t.Errorf("year went past maxYear: %d (cmd %v)", m.year, cmd)
+	}
+
+	// Ignored on list tabs
+	m.activeTab = TabRevenues
+	updated, cmd = m.Update(keyMsg("["))
+	m = updated.(Model)
+	if m.year != 2026 || cmd != nil {
+		t.Errorf("year switch must be ignored on list tabs: %d", m.year)
+	}
+
+	// Ignored in demo mode
+	m.activeTab = TabDashboard
+	m.demoMode = true
+	updated, _ = m.Update(keyMsg("["))
+	m = updated.(Model)
+	if m.year != 2026 {
+		t.Errorf("year switch must be ignored in demo mode: %d", m.year)
+	}
+}
+
+// The first summary establishes maxYear and later summaries track the year
+func TestSummarySetsYearBounds(t *testing.T) {
+	m := NewDemoModel()
+	m.summary = nil
+	m.year, m.maxYear = 0, 0
+
+	updated, _ := m.Update(summaryMsg(&client.Summary{Year: 2026, TotalRevenues: 1000}))
+	m = updated.(Model)
+	if m.year != 2026 || m.maxYear != 2026 {
+		t.Fatalf("after first summary: year %d maxYear %d, want 2026/2026", m.year, m.maxYear)
+	}
+
+	updated, _ = m.Update(summaryMsg(&client.Summary{Year: 2024, TotalRevenues: 500}))
+	m = updated.(Model)
+	if m.year != 2024 || m.maxYear != 2026 {
+		t.Errorf("after year switch: year %d maxYear %d, want 2024/2026", m.year, m.maxYear)
 	}
 }
 

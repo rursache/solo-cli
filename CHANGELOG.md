@@ -1,6 +1,7 @@
 ## [Unreleased]
 
 ### Added
+- **Year switcher**: press `[` and `]` on the Dashboard or Taxes tab to view previous years, like `solo-cli summary 2025` on the CLI. Bounded by the current fiscal year
 - **Richer Dashboard**: shows the company address, the CAEN codes (principal with full name, secundare as a code list) and the net income (revenues - expenses) in the summary box. The `company` CLI command also lists the CAEN codes
 
 ### Fixed

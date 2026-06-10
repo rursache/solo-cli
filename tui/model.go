@@ -48,6 +48,8 @@ type Model struct {
 	activeTab Tab
 	width     int
 	height    int
+	year      int // Displayed year (0 = current, set from the first summary)
+	maxYear   int // Current fiscal year, the upper bound for year switching
 
 	// Data
 	summary      *client.Summary
