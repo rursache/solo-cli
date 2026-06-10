@@ -1,7 +1,7 @@
 ## [Unreleased]
 
 ### Changed
-- **Quit button moved to the tab bar row**: right aligned next to the tabs, in the header as intended. It cannot sit on the very first terminal row because terminals with overlay titlebars swallow clicks there
+- **Quit button moved to the tab bar row**: a `QUIT` button right aligned next to the tabs, in the header as intended. It cannot sit on the very first terminal row because terminals with overlay titlebars swallow clicks there
 
 ## [1.7.0]
 
