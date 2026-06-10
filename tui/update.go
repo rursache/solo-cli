@@ -63,7 +63,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "down", "j":
 			if m.activeTab == TabTaxes {
 				// Must match the viewport math in renderTaxesViewport
-				availHeight := m.height - 10
+				availHeight := m.height - 8
 				if availHeight < 5 {
 					availHeight = 5
 				}

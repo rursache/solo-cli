@@ -112,6 +112,32 @@ func TestExpensesViewportShrinksForRejected(t *testing.T) {
 	}
 }
 
+// When the Taxes content is taller than the screen, the scroll viewport must
+// use all available rows: no dead gap between the scroll hint and the help bar
+func TestTaxesViewportUsesFullHeight(t *testing.T) {
+	const height = 24
+
+	m := NewDemoModel()
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: height})
+	m = updated.(Model)
+	m.activeTab = TabTaxes
+
+	lines := strings.Split(m.View(), "\n")
+	hintIdx := -1
+	for i, line := range lines {
+		if strings.Contains(line, "scroll to see more") {
+			hintIdx = i
+		}
+	}
+	if hintIdx == -1 {
+		t.Fatal("taxes content not scrollable at height 24, cannot verify gap")
+	}
+	// Expected tail: hint, padding row, help margin row, help text
+	if gap := len(lines) - 1 - hintIdx; gap > 3 {
+		t.Errorf("%d rows between scroll hint and help bar, want at most 3 (dead space)", gap)
+	}
+}
+
 func TestPadTruncate(t *testing.T) {
 	if got := padTruncate("abc", 6); got != "abc   " {
 		t.Errorf("pad: %q", got)
