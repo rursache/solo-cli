@@ -1,3 +1,8 @@
+## [Unreleased]
+
+### Fixed
+- **Audit fixes** (multi-agent code audit, 9 confirmed findings): space key no longer inserts double spaces in search, the cursor stays visible after resizes on the Expenses tab, slow page fetches landing after a refresh/search/tab change are dropped instead of corrupting the list, rapid year switching cannot show the wrong year's data, all API calls have a 30 second timeout, server strings are stripped of terminal control characters (escape injection hardening), the `company` command no longer panics on an empty profile response and the skill downloader closes connections promptly
+
 ## [1.7.1]
 
 ### Added
