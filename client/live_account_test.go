@@ -129,3 +129,26 @@ func TestLiveSchemaCompanyExtras(t *testing.T) {
 		t.Log("no bank accounts, item schema not checked")
 	}
 }
+
+func TestLiveSchemaSubscription(t *testing.T) {
+	c := liveClient(t)
+
+	assertSchema(t, rawGet(t, c, "/proxy/accounting/subscription/summary", "/settings/subscription"), reflect.TypeOf(SubscriptionResponse{}), "subscription")
+	assertSchema(t, rawGet(t, c, "/proxy/accounting/subscription/benefits", "/settings/subscription"), reflect.TypeOf(SubscriptionBenefits{}), "benefits")
+
+	resp, err := c.GetSubscription()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.SubscriptionSummary == nil || resp.SubscriptionSummary.Subscription == nil {
+		t.Fatal("no subscription in summary")
+	}
+	t.Logf("status %s", resp.SubscriptionSummary.Subscription.DisplayStatus())
+}
+
+func TestLiveSchemaReferral(t *testing.T) {
+	c := liveClient(t)
+
+	assertSchema(t, rawGet(t, c, "/api/referral/campaign", "/referral"), reflect.TypeOf(ReferralCampaign{}), "referralCampaign")
+	assertSchema(t, rawGet(t, c, "/api/referral/rewards", "/referral"), reflect.TypeOf(ReferralRewards{}), "referralRewards")
+}

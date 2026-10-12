@@ -45,6 +45,10 @@ func docCodeSuffix(code string) string {
 	return " (document " + code + ")"
 }
 
+func formatRON(v float64) string {
+	return strconv.FormatFloat(v, 'f', 2, 64) + " RON"
+}
+
 const documentsUsage = "Usage: solo-cli documents [pfa | download <code> [-o file] [-f]]"
 
 func runDocuments(args []string) {
@@ -239,5 +243,127 @@ func printCompanyExtras(c *client.Client) {
 			line += " (" + cur + ")"
 		}
 		fmt.Println(line)
+	}
+}
+
+func runSubscription(args []string) {
+	if len(args) > 0 {
+		exitErr(fmt.Errorf("unexpected argument %q\nUsage: solo-cli subscription", args[0]))
+	}
+	c, _ := setupClient()
+	resp, err := c.GetSubscription()
+	if err != nil {
+		exitErr(err)
+	}
+	summary := resp.SubscriptionSummary
+	if summary == nil || summary.Subscription == nil {
+		exitErr(fmt.Errorf("no subscription information on this account"))
+	}
+	sub := summary.Subscription
+
+	period := ""
+	if plan := resp.ChangeOptions; plan != nil && plan.CurrentSubscription != nil {
+		period = strings.ToLower(plan.CurrentSubscription.BillingPeriod)
+	}
+	suffix := map[string]string{"yearly": "/year", "monthly": "/month"}[period]
+
+	planLine := sub.Name
+	if period != "" {
+		planLine += " (" + period + ")"
+	}
+	fmt.Printf("Plan: %s\n", planLine)
+	fmt.Printf("Status: %s\n", sub.DisplayStatus())
+	fmt.Printf("Price: %s%s\n", formatRON(sub.ProductPrice), suffix)
+	if sub.DiscountedAmount > 0 {
+		fmt.Printf("Discount: %s\n", formatRON(sub.DiscountedAmount))
+	}
+	if sub.HasUpcomingPriceChange && sub.UpcomingProductPrice > 0 {
+		line := formatRON(sub.UpcomingProductPrice) + suffix
+		if on := dateOnly(strOrEmpty(sub.UpcomingChangeOn)); on != "" {
+			line += " from " + on
+		}
+		fmt.Printf("Upcoming price: %s\n", line)
+	}
+	if sub.NextBillingDate != "" {
+		fmt.Printf("Next billing: %s\n", dateOnly(sub.NextBillingDate))
+	}
+	if cancelled := strOrEmpty(sub.CancelledOn); cancelled != "" {
+		fmt.Printf("Cancelled on: %s\n", dateOnly(cancelled))
+	}
+	if ch := resp.ScheduledChange; ch != nil {
+		target := strings.ToLower(ch.TargetBillingPeriod)
+		if target == "" {
+			target = "a new plan"
+		} else {
+			target += " billing"
+		}
+		fmt.Printf("Scheduled change: switch to %s\n", target)
+	}
+	if card := summary.DefaultCard; card != nil {
+		line := card.BrandLabel()
+		if card.LastDigits != "" {
+			line += " ending in " + card.LastDigits
+		}
+		if exp := card.Expiry(); exp != "" {
+			line += ", expires " + exp
+		}
+		if card.Expired(time.Now()) {
+			line += " (EXPIRED)"
+		}
+		fmt.Printf("Card: %s\n", line)
+	}
+	if debt := summary.OverduePaymentSummary; debt != nil && debt.Total > 0 {
+		line := formatRON(debt.Total)
+		if debt.PaymentCount > 1 {
+			line += fmt.Sprintf(" (%d payments)", debt.PaymentCount)
+		}
+		fmt.Printf("Overdue: %s\n", line)
+	}
+	if benefits, err := c.GetSubscriptionBenefits(); err == nil {
+		hosted := "no"
+		if benefits.HasProviderHostedHeadquarter {
+			hosted = "yes"
+		}
+		fmt.Printf("Hosted headquarters: %s\n", hosted)
+	}
+	fmt.Printf("Manage: %s\n", client.SubscriptionURL())
+}
+
+func runReferral(args []string) {
+	if len(args) > 0 {
+		exitErr(fmt.Errorf("unexpected argument %q\nUsage: solo-cli referral", args[0]))
+	}
+	c, _ := setupClient()
+	campaign, err := c.GetReferralCampaign()
+	if err != nil {
+		exitErr(err)
+	}
+	if link := campaign.Link(); link != "" {
+		fmt.Printf("Link: %s\n", link)
+	} else {
+		fmt.Fprintln(os.Stderr, "Warning: this account has no referral code")
+	}
+	if cc := campaign.CurrentCampaign; cc != nil {
+		prize := formatRON(cc.ReferrerPrizeValue) + " for you"
+		if cc.GuestPrizeValue > 0 {
+			prize += ", " + formatRON(cc.GuestPrizeValue) + " for the invited friend"
+		}
+		fmt.Printf("Prize: %s\n", prize)
+		start, end := dateOnly(strOrEmpty(cc.StartDate)), dateOnly(strOrEmpty(cc.EndDate))
+		if cc.IsTimeLimited && start != "" && end != "" {
+			fmt.Printf("Period: %s - %s\n", start, end)
+		}
+	}
+
+	rewards, err := c.GetReferralRewards()
+	if err != nil {
+		exitErr(err)
+	}
+	fmt.Printf("Earned: %s\n", formatRON(rewards.EarnedWinnings))
+	fmt.Printf("Pending: %s\n", formatRON(rewards.PendingWinnings))
+	if rewards.EarnedWinnings+rewards.PendingWinnings > 0 && c.CompanyID != "" {
+		if accounts, err := c.ListBankAccounts(c.CompanyID); err == nil && len(accounts) == 0 {
+			fmt.Fprintln(os.Stderr, "Note: payouts need a bank account (IBAN) in the SOLO.ro settings")
+		}
 	}
 }

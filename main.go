@@ -70,6 +70,10 @@ func main() {
 		runDocuments(cmdArgs)
 	case "report", "reports":
 		runReport(cmdArgs)
+	case "subscription":
+		runSubscription(cmdArgs)
+	case "referral":
+		runReferral(cmdArgs)
 	case "setup-skills":
 		runSetupSkills()
 	case "tui":
@@ -113,6 +117,8 @@ Commands:
                   download <code> [-o file] [-f]
   report [year] [-o file] [-f]
                   Download the cash flow register PDF (registrul de incasari si plati)
+  subscription    Show the SOLO.ro subscription, changes stay on the web
+  referral        Show the referral link, prizes and rewards
   setup-skills    Install AI skills for Claude Code and other agents
   tui             Start interactive TUI (default when no command)
   demo            Start TUI with demo data (for screenshots)

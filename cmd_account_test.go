@@ -260,3 +260,13 @@ func TestCompanyExtras(t *testing.T) {
 		t.Errorf("company without extras: %d %q %q", code, out, errOut)
 	}
 }
+
+func TestSubscriptionAndReferral(t *testing.T) {
+	api, _ := newAccountMock(t)
+	e := newEnv(t, "good-password")
+
+	expectOutputs(t, e, api, t.TempDir(), map[string]string{
+		"referral":     "Link: https://www.solo.ro/ref/test123\nPrize: 100.00 RON for you, 50.00 RON for the invited friend\nPeriod: 2026-01-01 - 2026-12-31\nEarned: 200.00 RON\nPending: 50.00 RON\n",
+		"subscription": "Plan: Test Plan (yearly)\nStatus: Paused\nPrice: 1000.00 RON/year\nNext billing: 2027-01-01\nCard: Visa ending in 0000, expires 08/2099\nOverdue: 100.00 RON (2 payments)\nHosted headquarters: yes\nManage: " + api.server.URL + "/settings/subscription\n",
+	})
+}
