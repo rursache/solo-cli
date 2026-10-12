@@ -9,6 +9,13 @@ import (
 	"solo-cli/client"
 )
 
+func runAlertsCmd(args []string) {
+	if len(args) > 0 {
+		exitErr(fmt.Errorf("unexpected argument %q\nUsage: solo-cli alerts", args[0]))
+	}
+	withClient(runAlerts)
+}
+
 func runAlerts(c *client.Client) {
 	a := c.GetAlerts()
 	for _, e := range a.Errors {

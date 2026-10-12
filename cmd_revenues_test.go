@@ -157,11 +157,11 @@ func TestCLIRevenueDocuments(t *testing.T) {
 	}
 
 	out, _, code = e.run(t, api, "revenues", "queue")
-	if code != 0 || out != "factura-client.pdf\t1 days\t\t(ID: 21)\n" {
+	if code != 0 || out != "factura-client.pdf\t1 days\t\t(ID: 21)\tdoc_q\n" {
 		t.Errorf("revenues queue: %d %q", code, out)
 	}
 	out, _, code = e.run(t, api, "rev", "rejected")
-	if code != 0 || out != "poza.jpg\tDocument ilizibil\t(ID: 22)\n" {
+	if code != 0 || out != "poza.jpg\tDocument ilizibil\t(ID: 22)\tdoc_r\n" {
 		t.Errorf("revenues rejected: %d %q", code, out)
 	}
 

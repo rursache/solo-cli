@@ -12,11 +12,12 @@ import (
 )
 
 const invoiceUsage = `Usage:
-  solo-cli invoice <code>                              Show an invoice with its lines
-  solo-cli invoice paid <code> [YYYY-MM-DD] [--yes]    Mark paid (default today)
-  solo-cli invoice unpaid <code> [--yes]               Mark unpaid
-  solo-cli invoice download <code> [--xml | --original] [-o path] [--force]
-  solo-cli invoice delete <code> [--yes]               Delete the last issued invoice`
+  solo-cli invoice <code>                           Show an invoice with its lines
+  solo-cli invoice paid <code> [YYYY-MM-DD] [-y]    Mark paid (default today)
+  solo-cli invoice unpaid <code> [-y]               Mark unpaid
+  solo-cli invoice download <code> [--xml | --original] [-o path] [-f]
+  solo-cli invoice delete <code> [-y]               Delete the last issued invoice
+<code> is the invoice code, the last column of solo-cli revenues`
 
 // runInvoice handles "invoice <code>" and its action subcommands. Arguments
 // are checked before signing in
@@ -137,14 +138,6 @@ func downloadFormat(args []string) (string, []string, error) {
 	return format, rest, nil
 }
 
-// civilDay keeps the YYYY-MM-DD part of an API timestamp
-func civilDay(s string) string {
-	if len(s) >= 10 {
-		return s[:10]
-	}
-	return s
-}
-
 func invoiceNumber(q float64) string {
 	return strconv.FormatFloat(q, 'f', -1, 64)
 }
@@ -157,15 +150,15 @@ func showInvoice(c *client.Client, code string) error {
 	cur := inv.Currency.ShortName
 	paid := "UNPAID"
 	if inv.IsPaid {
-		paid = "PAID " + civilDay(inv.PaymentDate)
+		paid = "PAID " + dateOnly(inv.PaymentDate)
 	}
 
 	fmt.Printf("Invoice: %s\n", inv.SerialCode)
 	fmt.Printf("Code: %s\n", inv.UniqueCode)
 	fmt.Printf("Client: %s\n", inv.ClientName)
-	fmt.Printf("Issued: %s\n", civilDay(inv.IssueDate))
+	fmt.Printf("Issued: %s\n", dateOnly(inv.IssueDate))
 	if inv.DueDate != "" {
-		fmt.Printf("Due: %s\n", civilDay(inv.DueDate))
+		fmt.Printf("Due: %s\n", dateOnly(inv.DueDate))
 	}
 	if inv.Status != nil {
 		status := inv.Status.Name
@@ -219,8 +212,8 @@ func markInvoicePaid(c *client.Client, code string, day time.Time, yes bool) err
 		if inv.Status != nil && inv.Status.IsCancelled {
 			return fmt.Errorf("invoice %s is cancelled", inv.SerialCode)
 		}
-		if issued, err := time.ParseInLocation("2006-01-02", civilDay(inv.IssueDate), time.Local); err == nil && day.Before(issued) {
-			return fmt.Errorf("%w, it was issued on %s", client.ErrInvalidPaymentDate, civilDay(inv.IssueDate))
+		if issued, err := time.ParseInLocation("2006-01-02", dateOnly(inv.IssueDate), time.Local); err == nil && day.Before(issued) {
+			return fmt.Errorf("%w, it was issued on %s", client.ErrInvalidPaymentDate, dateOnly(inv.IssueDate))
 		}
 	}
 
@@ -228,7 +221,7 @@ func markInvoicePaid(c *client.Client, code string, day time.Time, yes bool) err
 	date := day.Format("2006-01-02")
 	question := fmt.Sprintf("Mark invoice %s paid on %s?", label, date)
 	if inv != nil && inv.IsPaid {
-		question = fmt.Sprintf("Invoice %s is already paid on %s, change the payment date to %s?", label, civilDay(inv.PaymentDate), date)
+		question = fmt.Sprintf("Invoice %s is already paid on %s, change the payment date to %s?", label, dateOnly(inv.PaymentDate), date)
 	}
 	if err := confirm(question, yes); err != nil {
 		return err

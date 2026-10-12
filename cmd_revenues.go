@@ -3,48 +3,66 @@ package main
 import (
 	"fmt"
 	"os"
-	"strconv"
 
 	"solo-cli/client"
 )
 
-const revenueDocsPageSize = 100
+// docsPageSize pages the queued and rejected document lists
+const docsPageSize = 100
 
-const revenuesUsage = "Usage: solo-cli revenues [queue | rejected | delete <id> [--yes]]"
+const revenuesUsage = "Usage: solo-cli revenues [queue | rejected | delete <id> [-y]]"
 
-// runRevenueDocuments handles the "revenues" subcommands for uploaded
-// revenue documents
-func runRevenueDocuments(c *client.Client, args []string) {
+// runRevenuesCmd validates the revenues subcommands for uploaded revenue
+// documents before signing in, then runs them
+func runRevenuesCmd(args []string) {
+	if len(args) == 0 {
+		withClient(runRevenues)
+		return
+	}
 	switch args[0] {
-	case "queue", "queued", "q":
-		listQueuedRevenues(c)
-	case "rejected":
-		listRejectedRevenues(c)
+	case "queue", "queued", "q", "rejected":
+		if len(args) > 1 {
+			exitErr(fmt.Errorf("unexpected argument %q\n%s", args[1], revenuesUsage))
+		}
+		c, _ := setupClient()
+		if args[0] == "rejected" {
+			listRejectedRevenues(c)
+		} else {
+			listQueuedRevenues(c)
+		}
 	case "delete", "del", "rm":
-		if err := deleteRevenueDocument(c, args[1:]); err != nil {
+		flags, err := parseCmdFlags(args[1:])
+		if err != nil {
+			exitErr(err)
+		}
+		id, err := parseDocumentID(flags.Args, "solo-cli revenues delete <id> [-y]")
+		if err != nil {
+			exitErr(err)
+		}
+		c, _ := setupClient()
+		if err := deleteRevenueDocument(c, id, flags.Yes); err != nil {
 			exitErr(err)
 		}
 	default:
-		fmt.Fprintf(os.Stderr, "Error: unknown revenues subcommand %q\n%s\n", args[0], revenuesUsage)
-		os.Exit(1)
+		exitErr(fmt.Errorf("unknown revenues subcommand %q\n%s", args[0], revenuesUsage))
 	}
 }
 
 // warnRejectedRevenues mirrors the rejected expenses warning of "expenses"
 func warnRejectedRevenues(c *client.Client) {
-	rejected, err := c.ListRejectedRevenues(0, revenueDocsPageSize)
+	rejected, err := c.ListRejectedRevenues(0, docsPageSize)
 	if err != nil || len(rejected.Items) == 0 {
 		return
 	}
 	fmt.Fprintf(os.Stderr, "⚠️  %d rejected revenue document(s):\n", len(rejected.Items))
 	for _, r := range rejected.Items {
-		fmt.Fprintf(os.Stderr, "   • %s - %s\n", r.DocumentName, r.Reason)
+		fmt.Fprintf(os.Stderr, "   • %s - %s%s\n", r.DocumentName, r.Reason, docCodeSuffix(r.DocumentCode))
 	}
 	fmt.Fprintln(os.Stderr)
 }
 
 func listQueuedRevenues(c *client.Client) {
-	queue, err := c.ListQueuedRevenues(0, revenueDocsPageSize, "")
+	queue, err := c.ListQueuedRevenues(0, docsPageSize, "")
 	if err != nil {
 		exitErr(err)
 	}
@@ -53,40 +71,28 @@ func listQueuedRevenues(c *client.Client) {
 		if q.IsOverdue {
 			overdue = "OVERDUE"
 		}
-		fmt.Printf("%s\t%d days\t%s\t(ID: %d)\n", q.DocumentName, q.DaysPassed, overdue, q.Id)
+		fmt.Printf("%s\t%d days\t%s\t(ID: %d)%s\n", q.DocumentName, q.DaysPassed, overdue, q.Id, lastColumn(q.DocumentCode))
 	}
 }
 
 func listRejectedRevenues(c *client.Client) {
-	rejected, err := c.ListRejectedRevenues(0, revenueDocsPageSize)
+	rejected, err := c.ListRejectedRevenues(0, docsPageSize)
 	if err != nil {
 		exitErr(err)
 	}
 	for _, r := range rejected.Items {
-		fmt.Printf("%s\t%s\t(ID: %d)\n", r.DocumentName, r.Reason, r.Id)
+		fmt.Printf("%s\t%s\t(ID: %d)%s\n", r.DocumentName, r.Reason, r.Id, lastColumn(r.DocumentCode))
 	}
 }
 
-func deleteRevenueDocument(c *client.Client, args []string) error {
-	flags, err := parseCmdFlags(args)
-	if err != nil {
-		return err
-	}
-	if len(flags.Args) != 1 {
-		return fmt.Errorf("missing ID\nUsage: solo-cli revenues delete <id> [--yes]")
-	}
-	id, err := strconv.Atoi(flags.Args[0])
-	if err != nil || id <= 0 {
-		return fmt.Errorf("invalid ID '%s' (must be a number)", flags.Args[0])
-	}
-
+func deleteRevenueDocument(c *client.Client, id int, yes bool) error {
 	// The DELETE endpoint takes any revenue id, so only ids the queued or
 	// rejected lists show are accepted
 	name, err := findRevenueDocument(c, id)
 	if err != nil {
 		return err
 	}
-	if err := confirm(fmt.Sprintf("Delete revenue document %s (ID %d)?", name, id), flags.Yes); err != nil {
+	if err := confirm(fmt.Sprintf("Delete revenue document %s (ID %d)?", name, id), yes); err != nil {
 		return err
 	}
 	if err := c.DeleteRevenueDocument(id); err != nil {
@@ -99,8 +105,8 @@ func deleteRevenueDocument(c *client.Client, args []string) error {
 // findRevenueDocument returns the name of the queued or rejected revenue
 // document with the given id
 func findRevenueDocument(c *client.Client, id int) (string, error) {
-	for start := 0; ; start += revenueDocsPageSize {
-		page, err := c.ListQueuedRevenues(start, revenueDocsPageSize, "")
+	for start := 0; ; start += docsPageSize {
+		page, err := c.ListQueuedRevenues(start, docsPageSize, "")
 		if err != nil {
 			return "", err
 		}
@@ -109,12 +115,12 @@ func findRevenueDocument(c *client.Client, id int) (string, error) {
 				return q.DocumentName, nil
 			}
 		}
-		if len(page.Items) < revenueDocsPageSize {
+		if len(page.Items) < docsPageSize {
 			break
 		}
 	}
-	for start := 0; ; start += revenueDocsPageSize {
-		page, err := c.ListRejectedRevenues(start, revenueDocsPageSize)
+	for start := 0; ; start += docsPageSize {
+		page, err := c.ListRejectedRevenues(start, docsPageSize)
 		if err != nil {
 			return "", err
 		}
@@ -123,7 +129,7 @@ func findRevenueDocument(c *client.Client, id int) (string, error) {
 				return r.DocumentName, nil
 			}
 		}
-		if len(page.Items) < revenueDocsPageSize {
+		if len(page.Items) < docsPageSize {
 			break
 		}
 	}

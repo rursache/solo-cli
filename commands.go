@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strconv"
 
 	"solo-cli/client"
 	"solo-cli/config"
@@ -38,11 +39,7 @@ func runSummary(c *client.Client, args []string) {
 	printSummaryAlerts(c)
 }
 
-func runRevenues(c *client.Client, args []string) {
-	if len(args) > 0 {
-		runRevenueDocuments(c, args)
-		return
-	}
+func runRevenues(c *client.Client) {
 	warnRejectedRevenues(c)
 
 	revenues, err := c.ListRevenues(0, 100, "")
@@ -80,32 +77,34 @@ func runExpenses(c *client.Client) {
 	}
 }
 
-func runQueue(c *client.Client, args []string) {
-	// Handle subcommands
-	if len(args) > 0 {
-		cmd := args[0]
-		if cmd == "delete" || cmd == "del" || cmd == "rm" {
-			if len(args) < 2 {
-				fmt.Fprintln(os.Stderr, "Error: missing ID")
-				fmt.Fprintln(os.Stderr, "Usage: solo-cli queue delete <id>")
-				os.Exit(1)
-			}
-			idStr := args[1]
-			var id int
-			if _, err := fmt.Sscanf(idStr, "%d", &id); err != nil {
-				fmt.Fprintf(os.Stderr, "Error: invalid ID '%s' (must be a number)\n", idStr)
-				os.Exit(1)
-			}
-			fmt.Fprintf(os.Stderr, "Deleting queued item %d...\n", id)
-			if err := c.DeleteExpense(id); err != nil {
-				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-				os.Exit(1)
-			}
-			fmt.Println("Item deleted successfully.")
-			return
-		}
-	}
+const queueUsage = "Usage: solo-cli queue [delete <id> [-y]]"
 
+// runQueueCmd validates the queue subcommand before signing in
+func runQueueCmd(args []string) {
+	if len(args) == 0 {
+		withClient(runQueue)
+		return
+	}
+	switch args[0] {
+	case "delete", "del", "rm":
+		flags, err := parseCmdFlags(args[1:])
+		if err != nil {
+			exitErr(err)
+		}
+		id, err := parseDocumentID(flags.Args, "solo-cli queue delete <id> [-y]")
+		if err != nil {
+			exitErr(err)
+		}
+		c, _ := setupClient()
+		if err := deleteExpenseDocument(c, id, flags.Yes); err != nil {
+			exitErr(err)
+		}
+	default:
+		exitErr(fmt.Errorf("unknown queue subcommand %q\n%s", args[0], queueUsage))
+	}
+}
+
+func runQueue(c *client.Client) {
 	queue, err := c.ListQueuedExpenses(0, 100, "")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
@@ -247,4 +246,65 @@ func runUpload(c *client.Client, args []string) {
 
 	fmt.Printf("Uploaded: %s\n", filename)
 	fmt.Printf("Document added to %s queue for processing.\n", kind)
+}
+
+// parseDocumentID reads the single numeric id of a delete subcommand
+func parseDocumentID(args []string, usage string) (int, error) {
+	if len(args) != 1 {
+		return 0, fmt.Errorf("missing ID\nUsage: %s", usage)
+	}
+	id, err := strconv.Atoi(args[0])
+	if err != nil || id <= 0 {
+		return 0, fmt.Errorf("invalid ID '%s' (must be a number)", args[0])
+	}
+	return id, nil
+}
+
+// deleteExpenseDocument deletes a queued or rejected expense document. Like
+// the revenue delete, it only accepts ids those two lists show
+func deleteExpenseDocument(c *client.Client, id int, yes bool) error {
+	name, err := findExpenseDocument(c, id)
+	if err != nil {
+		return err
+	}
+	if err := confirm(fmt.Sprintf("Delete expense document %s (ID %d)?", name, id), yes); err != nil {
+		return err
+	}
+	if err := c.DeleteExpense(id); err != nil {
+		return err
+	}
+	fmt.Println("Document deleted")
+	return nil
+}
+
+func findExpenseDocument(c *client.Client, id int) (string, error) {
+	for start := 0; ; start += docsPageSize {
+		page, err := c.ListQueuedExpenses(start, docsPageSize, "")
+		if err != nil {
+			return "", err
+		}
+		for _, q := range page.Items {
+			if q.Id == id {
+				return q.DocumentName, nil
+			}
+		}
+		if len(page.Items) < docsPageSize {
+			break
+		}
+	}
+	for start := 0; ; start += docsPageSize {
+		page, err := c.ListRejectedExpenses(start, docsPageSize)
+		if err != nil {
+			return "", err
+		}
+		for _, r := range page.Items {
+			if r.Id == id {
+				return r.DocumentName, nil
+			}
+		}
+		if len(page.Items) < docsPageSize {
+			break
+		}
+	}
+	return "", fmt.Errorf("no queued or rejected expense document with ID %d, see solo-cli queue and the warnings of solo-cli expenses", id)
 }

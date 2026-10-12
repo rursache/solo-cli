@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"solo-cli/client"
+	"solo-cli/taxes"
 )
 
 var isoDateRe = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}`)
@@ -45,11 +46,7 @@ func docCodeSuffix(code string) string {
 	return " (document " + code + ")"
 }
 
-func formatRON(v float64) string {
-	return strconv.FormatFloat(v, 'f', 2, 64) + " RON"
-}
-
-const documentsUsage = "Usage: solo-cli documents [pfa | download <code> [-o file] [-f]]"
+const documentsUsage = "Usage: solo-cli documents [pfa | download <code> [-o path] [-f]]"
 
 func runDocuments(args []string) {
 	flags, err := parseCmdFlags(args)
@@ -169,7 +166,7 @@ func runExpensesCmd(args []string) {
 		exitErr(err)
 	}
 	if len(flags.Args) != 1 {
-		exitErr(fmt.Errorf("missing document code\nUsage: solo-cli expenses download <DocumentCode> [-o file] [-f]"))
+		exitErr(fmt.Errorf("missing document code\nUsage: solo-cli expenses download <DocumentCode> [-o path] [-f]"))
 	}
 	code := flags.Args[0]
 	c, _ := setupClient()
@@ -194,10 +191,10 @@ func runReport(args []string) {
 	case 1:
 		year, err = strconv.Atoi(flags.Args[0])
 		if err != nil {
-			exitErr(fmt.Errorf("invalid year %q\nUsage: solo-cli report [year] [-o file] [-f]", flags.Args[0]))
+			exitErr(fmt.Errorf("invalid year %q\nUsage: solo-cli report [year] [-o path] [-f]", flags.Args[0]))
 		}
 	default:
-		exitErr(fmt.Errorf("too many arguments\nUsage: solo-cli report [year] [-o file] [-f]"))
+		exitErr(fmt.Errorf("too many arguments\nUsage: solo-cli report [year] [-o path] [-f]"))
 	}
 
 	c, _ := setupClient()
@@ -273,12 +270,12 @@ func runSubscription(args []string) {
 	}
 	fmt.Printf("Plan: %s\n", planLine)
 	fmt.Printf("Status: %s\n", sub.DisplayStatus())
-	fmt.Printf("Price: %s%s\n", formatRON(sub.ProductPrice), suffix)
+	fmt.Printf("Price: %s%s\n", taxes.FormatRON(sub.ProductPrice), suffix)
 	if sub.DiscountedAmount > 0 {
-		fmt.Printf("Discount: %s\n", formatRON(sub.DiscountedAmount))
+		fmt.Printf("Discount: %s\n", taxes.FormatRON(sub.DiscountedAmount))
 	}
 	if sub.HasUpcomingPriceChange && sub.UpcomingProductPrice > 0 {
-		line := formatRON(sub.UpcomingProductPrice) + suffix
+		line := taxes.FormatRON(sub.UpcomingProductPrice) + suffix
 		if on := dateOnly(strOrEmpty(sub.UpcomingChangeOn)); on != "" {
 			line += " from " + on
 		}
@@ -313,7 +310,7 @@ func runSubscription(args []string) {
 		fmt.Printf("Card: %s\n", line)
 	}
 	if debt := summary.OverduePaymentSummary; debt != nil && debt.Total > 0 {
-		line := formatRON(debt.Total)
+		line := taxes.FormatRON(debt.Total)
 		if debt.PaymentCount > 1 {
 			line += fmt.Sprintf(" (%d payments)", debt.PaymentCount)
 		}
@@ -344,9 +341,9 @@ func runReferral(args []string) {
 		fmt.Fprintln(os.Stderr, "Warning: this account has no referral code")
 	}
 	if cc := campaign.CurrentCampaign; cc != nil {
-		prize := formatRON(cc.ReferrerPrizeValue) + " for you"
+		prize := taxes.FormatRON(cc.ReferrerPrizeValue) + " for you"
 		if cc.GuestPrizeValue > 0 {
-			prize += ", " + formatRON(cc.GuestPrizeValue) + " for the invited friend"
+			prize += ", " + taxes.FormatRON(cc.GuestPrizeValue) + " for the invited friend"
 		}
 		fmt.Printf("Prize: %s\n", prize)
 		start, end := dateOnly(strOrEmpty(cc.StartDate)), dateOnly(strOrEmpty(cc.EndDate))
@@ -359,8 +356,8 @@ func runReferral(args []string) {
 	if err != nil {
 		exitErr(err)
 	}
-	fmt.Printf("Earned: %s\n", formatRON(rewards.EarnedWinnings))
-	fmt.Printf("Pending: %s\n", formatRON(rewards.PendingWinnings))
+	fmt.Printf("Earned: %s\n", taxes.FormatRON(rewards.EarnedWinnings))
+	fmt.Printf("Pending: %s\n", taxes.FormatRON(rewards.PendingWinnings))
 	if rewards.EarnedWinnings+rewards.PendingWinnings > 0 && c.CompanyID != "" {
 		if accounts, err := c.ListBankAccounts(c.CompanyID); err == nil && len(accounts) == 0 {
 			fmt.Fprintln(os.Stderr, "Note: payouts need a bank account (IBAN) in the SOLO.ro settings")

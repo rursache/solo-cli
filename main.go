@@ -47,13 +47,13 @@ func main() {
 	case "summary":
 		withClientArgs(runSummary, cmdArgs)
 	case "revenues", "revenue", "rev":
-		withClientArgs(runRevenues, cmdArgs)
+		runRevenuesCmd(cmdArgs)
 	case "invoice", "inv":
 		runInvoice(cmdArgs)
 	case "expenses", "expense", "exp":
 		runExpensesCmd(cmdArgs)
 	case "queue", "q":
-		withClientArgs(runQueue, cmdArgs)
+		runQueueCmd(cmdArgs)
 	case "efactura", "einvoice", "ei":
 		runEFacturaCmd(cmdArgs)
 	case "company":
@@ -61,7 +61,7 @@ func main() {
 	case "taxes", "tax":
 		withClientArgs(runTaxes, cmdArgs)
 	case "alerts", "alert":
-		withClient(runAlerts)
+		runAlertsCmd(cmdArgs)
 	case "declaration", "du":
 		withClientArgs(runDeclaration, cmdArgs)
 	case "upload", "up":
@@ -98,57 +98,93 @@ func printHelp() {
 Usage:
   solo-cli [options] [command] [args]
 
-Commands:
-  summary [year]  Show account summary (year, revenues, expenses, taxes)
-  taxes [year]    Show tax breakdown with thresholds (alias: tax)
-  alerts          Show active account alerts (VAT threshold, CAEN update, procura)
-  declaration     Show Declaratia Unica status for [year], default last year (alias: du)
-  revenues        List revenue invoices, the last column is the invoice code (aliases: revenue, rev)
-                  Subcommands: queue, rejected, delete <id>
-  invoice <code>  Show an invoice with its lines (alias: inv). Subcommands:
-                  paid <code> [YYYY-MM-DD], unpaid <code>, delete <code>,
-                  download <code> [--xml | --original] [-o path] [-f]
-  expenses        List expenses (aliases: expense, exp)
-  expenses download <code> [-o file] [-f]
-                  Download an expense document, the code is the last column of expenses
-  queue           List expense queue (alias: q). Subcommands: delete <id>
-  efactura        List received e-Factura documents (aliases: einvoice, ei). Subcommands:
-                  status <invoice>, send <invoice>, expedite <invoice>, settings,
-                  settings set [--delay 0|2] [--contact-info yes|no]. Connecting the SPV happens on the web
-  company         Show company profile
-  upload <file>   Upload expense document (alias: up), --revenue (-r) for a revenue document
-  documents       List filed tax declarations (alias: docs). Subcommands: pfa,
-                  download <code> [-o file] [-f]
-  report [year] [-o file] [-f]
-                  Download the cash flow register PDF (registrul de incasari si plati)
-  subscription    Show the SOLO.ro subscription, changes stay on the web
-  referral        Show the referral link, prizes and rewards
-  clients [text]  List clients, optionally filtered by a search text (alias: customers)
-  rates [date]    Show BNR exchange rates for a day (YYYY-MM-DD, default today)
-  setup-skills    Install AI skills for Claude Code and other agents
-  tui             Start interactive TUI (default when no command)
-  demo            Start TUI with demo data (for screenshots)
+Overview:
+  summary [year]        Account summary, active alerts follow on stderr
+  taxes [year]          Local tax breakdown with thresholds plus SOLO's own estimate (alias: tax)
+  declaration [year]    Declaratia Unica status, default last year (alias: du)
+  alerts                Active account alerts (VAT threshold, CAEN update, procura) (alias: alert)
+
+Revenues and invoices:
+  revenues              List revenue invoices, the last column is the invoice code (aliases: revenue, rev)
+  revenues queue        List revenue documents still being processed (aliases: queued, q)
+  revenues rejected     List rejected revenue documents
+  revenues delete <id> [-y]
+                        Delete a queued or rejected revenue document (aliases: del, rm)
+  invoice <code>        Show an invoice with its lines (alias: inv)
+  invoice paid <code> [YYYY-MM-DD] [-y]
+                        Mark an invoice paid, default today
+  invoice unpaid <code> [-y]
+                        Mark an invoice unpaid
+  invoice download <code> [--xml | --original] [-o path] [-f]
+                        Save the invoice PDF, its e-Factura XML or the uploaded original (alias: dl)
+  invoice delete <code> [-y]
+                        Delete the last issued invoice (aliases: del, rm)
+
+e-Factura:
+  efactura              List received e-Factura documents (aliases: einvoice, ei)
+  efactura status <invoice>
+                        e-Factura status of an issued invoice (code or serial)
+  efactura send <invoice> [-y]
+                        Send an invoice left on manual sending to ANAF
+  efactura expedite <invoice> [-y]
+                        Send a scheduled e-Factura now
+  efactura settings     SPV connection and sending preferences
+  efactura settings set [--delay 0|2] [--contact-info yes|no] [-y]
+                        Change the sending preferences, connecting the SPV happens on the web
+
+Expenses:
+  expenses              List expenses, the last column is the document code when set (aliases: expense, exp)
+  expenses download <code> [-o path] [-f]
+                        Save an expense, queued or rejected document (alias: dl)
+  queue                 List the expense queue (alias: q)
+  queue delete <id> [-y]
+                        Delete a queued or rejected expense document (aliases: del, rm)
+  upload [-r] <file>    Upload an expense document, --revenue (-r) for a revenue document (alias: up)
+
+Documents:
+  documents             List filed tax declarations (alias: docs)
+  documents pfa         List the Documente PFA files
+  documents download <code> [-o path] [-f]
+                        Save a declaration or PFA document (alias: dl)
+  report [year] [-o path] [-f]
+                        Save the cash flow register PDF (registrul de incasari si plati) (alias: reports)
+
+Account:
+  company               Company profile, VIES status and bank accounts
+  subscription          SOLO.ro subscription, changes stay on the web
+  referral              Referral link, prizes and rewards
+  clients [text]        List clients, optionally filtered by a search text (alias: customers)
+  rates [YYYY-MM-DD]    BNR exchange rates for a day, default today
+
+Other:
+  setup-skills          Install AI skills for Claude Code and other agents
+  tui                   Start interactive TUI (default when no command)
+  demo                  Start TUI with demo data (for screenshots)
 
 Options:
-  --config, -c    Path to custom config file
-  help, -h        Show this help message
-  version, -v     Show version
+  --config, -c          Path to custom config file
+  help, -h              Show this help message
+  version, -v           Show version
+
+Command flags:
+  --yes, -y             Confirm a destructive or outward-facing action, required without a terminal
+  --output, -o          Path or directory for a download, default the current directory
+  --force, -f           Overwrite an existing file when downloading
 
 Config:
   Default: ~/.config/solo-cli/config.json
 
 Examples:
-  solo-cli                          # Start TUI
-  solo-cli summary                  # Show current year summary
-  solo-cli summary 2025             # Show 2025 summary
-  solo-cli upload invoice.pdf       # Upload expense document
-  solo-cli queue delete 123         # Delete queued item
-  solo-cli upload -r invoice.pdf    # Upload revenue document
-  solo-cli invoice paid <code> -y   # Mark an invoice paid today
-  solo-cli invoice download <code>  # Save the invoice PDF
-  solo-cli efactura status INV-001  # e-Factura status of an issued invoice
-  solo-cli report 2025 -o ~/Desktop # Save the 2025 cash flow register
-  solo-cli -c ~/my-config.json rev  # Use custom config
+  solo-cli                            # Start TUI
+  solo-cli summary 2025               # Show 2025 summary
+  solo-cli upload invoice.pdf         # Upload expense document
+  solo-cli upload -r invoice.pdf      # Upload revenue document
+  solo-cli queue delete 123 -y        # Delete a queued expense document
+  solo-cli invoice paid <code> -y     # Mark an invoice paid today
+  solo-cli invoice download <code>    # Save the invoice PDF
+  solo-cli efactura status INV-001    # e-Factura status of an issued invoice
+  solo-cli report 2025 -o ~/Desktop   # Save the 2025 cash flow register
+  solo-cli -c ~/my-config.json rev    # Use custom config
   solo-cli expenses | grep -i "food"
 
 `)

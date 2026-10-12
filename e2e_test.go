@@ -417,20 +417,35 @@ func TestE2EQueueDelete(t *testing.T) {
 	api := newMockAPI(t)
 	e := newEnv(t, "good-password")
 
-	out, _, code := e.run(t, api, "queue", "delete", "42")
-	if code != 0 {
-		t.Fatalf("queue delete exit %d", code)
+	// Without a terminal and without --yes nothing is deleted
+	out, errOut, code := e.run(t, api, "queue", "delete", "42")
+	if code != 1 || out != "" || !strings.Contains(errOut, "Delete expense document receipt.pdf (ID 42) needs confirmation, pass --yes (-y)") {
+		t.Errorf("unconfirmed delete: code %d, out %q, stderr %q", code, out, errOut)
 	}
-	if !strings.Contains(out, "deleted successfully") {
-		t.Errorf("delete output: %q", out)
+	if got := api.deleteHits.Load(); got != 0 {
+		t.Fatalf("DELETE hits without --yes = %d, want 0", got)
+	}
+
+	out, errOut, code = e.run(t, api, "queue", "delete", "42", "-y")
+	if code != 0 || out != "Document deleted\n" {
+		t.Fatalf("queue delete: code %d, out %q, stderr %q", code, out, errOut)
 	}
 	if got := api.deleteHits.Load(); got != 1 {
 		t.Errorf("DELETE hits = %d, want 1", got)
 	}
 
-	_, errOut, code := e.run(t, api, "queue", "delete", "abc")
+	// Ids missing from the queued and rejected lists are refused
+	_, errOut, code = e.run(t, api, "queue", "delete", "99", "--yes")
+	if code != 1 || !strings.Contains(errOut, "no queued or rejected expense document with ID 99") {
+		t.Errorf("unknown id: code %d, stderr %q", code, errOut)
+	}
+
+	_, errOut, code = e.run(t, api, "queue", "delete", "abc")
 	if code != 1 || !strings.Contains(errOut, "invalid ID") {
 		t.Errorf("invalid id: code %d, stderr %q", code, errOut)
+	}
+	if got := api.deleteHits.Load(); got != 1 {
+		t.Errorf("DELETE hits = %d, want still 1", got)
 	}
 }
 
