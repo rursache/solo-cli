@@ -31,6 +31,10 @@ type Client struct {
 	userAgent  string
 	CompanyID  string
 
+	// CompanyStartYear is the first year of activity scraped next to the
+	// company ID, 0 when unknown
+	CompanyStartYear int
+
 	// LoginFallback is set when the last Login fell back to the legacy
 	// JSON endpoint and says why the cont.solo.ro flow failed
 	LoginFallback string

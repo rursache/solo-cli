@@ -6,10 +6,21 @@ import (
 	"encoding/json"
 	"reflect"
 	"testing"
+	"time"
 )
 
 // Read-only live checks for documents, reports and account info. Downloads
 // are GETs, nothing here creates, changes or sends anything
+
+func liveCompany(t *testing.T) (*Client, string) {
+	t.Helper()
+	c := liveClient(t)
+	id, err := c.DiscoverCompanyID()
+	if err != nil {
+		t.Fatalf("DiscoverCompanyID: %v", err)
+	}
+	return c, id
+}
 
 func rawGet(t *testing.T, c *Client, path, referer string) json.RawMessage {
 	t.Helper()
@@ -78,5 +89,20 @@ func TestLiveDocumentDownloads(t *testing.T) {
 		}
 		t.Logf("expense document: %s, .%s", f.ContentType, f.Extension())
 		break
+	}
+}
+
+func TestLiveCashflowReport(t *testing.T) {
+	c, id := liveCompany(t)
+
+	if c.CompanyStartYear == 0 {
+		t.Error("CompanyStartYear not found on the dashboard page")
+	}
+	f, err := c.DownloadCashflowReport(id, time.Now().Year())
+	if err != nil {
+		t.Fatalf("DownloadCashflowReport: %v", err)
+	}
+	if f.Extension() != "pdf" {
+		t.Errorf("cash flow register is %s (.%s), want a PDF", f.ContentType, f.Extension())
 	}
 }

@@ -216,3 +216,29 @@ func TestDocumentDownloads(t *testing.T) {
 		t.Errorf("expenses download without code: %d %q", code, errOut)
 	}
 }
+
+func TestReportCommand(t *testing.T) {
+	api, _ := newAccountMock(t)
+	e := newEnv(t, "good-password")
+	dir := t.TempDir()
+
+	year := time.Now().Year()
+	name := fmt.Sprintf("Registru-incasari-plati-%d.pdf", year)
+	if out, errOut, code := e.runIn(t, api, dir, "report"); code != 0 || out != name+"\n" || readIn(t, dir, name) != fmt.Sprintf("%%PDF-1.7 register %d", year) {
+		t.Errorf("report: %d %q %q", code, out, errOut)
+	}
+	sub := filepath.Join(dir, "reports")
+	os.Mkdir(sub, 0755)
+	want := filepath.Join(sub, fmt.Sprintf("Registru-incasari-plati-%d.pdf", year-2))
+	if out, errOut, code := e.runIn(t, api, dir, "report", fmt.Sprint(year-2), "-o", sub); code != 0 || out != want+"\n" {
+		t.Errorf("report into a directory: %d %q %q", code, out, errOut)
+	}
+	for _, bad := range []string{fmt.Sprint(year - 3), fmt.Sprint(year + 1)} {
+		if _, errOut, code := e.runIn(t, api, dir, "report", bad); code != 1 || !strings.Contains(errOut, "available years are") {
+			t.Errorf("report %s: %d %q", bad, code, errOut)
+		}
+	}
+	if _, errOut, code := e.runIn(t, api, dir, "report", "last"); code != 1 || !strings.Contains(errOut, "invalid year") {
+		t.Errorf("report with a bad year: %d %q", code, errOut)
+	}
+}

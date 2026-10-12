@@ -68,6 +68,8 @@ func main() {
 		withClientArgs(runUpload, cmdArgs)
 	case "documents", "docs":
 		runDocuments(cmdArgs)
+	case "report", "reports":
+		runReport(cmdArgs)
 	case "setup-skills":
 		runSetupSkills()
 	case "tui":
@@ -109,6 +111,8 @@ Commands:
   upload <file>   Upload expense document (alias: up), --revenue (-r) for a revenue document
   documents       List filed tax declarations (alias: docs). Subcommands: pfa,
                   download <code> [-o file] [-f]
+  report [year] [-o file] [-f]
+                  Download the cash flow register PDF (registrul de incasari si plati)
   setup-skills    Install AI skills for Claude Code and other agents
   tui             Start interactive TUI (default when no command)
   demo            Start TUI with demo data (for screenshots)
@@ -131,6 +135,7 @@ Examples:
   solo-cli invoice paid <code> -y   # Mark an invoice paid today
   solo-cli invoice download <code>  # Save the invoice PDF
   solo-cli efactura status INV-001  # e-Factura status of an issued invoice
+  solo-cli report 2025 -o ~/Desktop # Save the 2025 cash flow register
   solo-cli -c ~/my-config.json rev  # Use custom config
   solo-cli expenses | grep -i "food"
 

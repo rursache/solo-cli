@@ -5,7 +5,9 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
+	"time"
 
 	"solo-cli/client"
 )
@@ -173,6 +175,40 @@ func runExpensesCmd(args []string) {
 		exitErr(err)
 	}
 	if err := saveDownload(f, code, flags); err != nil {
+		exitErr(err)
+	}
+}
+
+func runReport(args []string) {
+	flags, err := parseCmdFlags(args)
+	if err != nil {
+		exitErr(err)
+	}
+	year := time.Now().Year()
+	switch len(flags.Args) {
+	case 0:
+	case 1:
+		year, err = strconv.Atoi(flags.Args[0])
+		if err != nil {
+			exitErr(fmt.Errorf("invalid year %q\nUsage: solo-cli report [year] [-o file] [-f]", flags.Args[0]))
+		}
+	default:
+		exitErr(fmt.Errorf("too many arguments\nUsage: solo-cli report [year] [-o file] [-f]"))
+	}
+
+	c, _ := setupClient()
+	if c.CompanyID == "" {
+		exitErr(fmt.Errorf("could not determine company ID"))
+	}
+	if first, last := c.CashflowYears(); year < first || year > last {
+		exitErr(fmt.Errorf("no cash flow register for %d, available years are %d to %d", year, first, last))
+	}
+	fmt.Fprintf(os.Stderr, "Downloading cash flow register for %d...\n", year)
+	f, err := c.DownloadCashflowReport(c.CompanyID, year)
+	if err != nil {
+		exitErr(err)
+	}
+	if err := saveDownload(f, fmt.Sprintf("Registru-incasari-plati-%d", year), flags); err != nil {
 		exitErr(err)
 	}
 }
