@@ -936,8 +936,13 @@ func deleteQueued(t *testing.T, m Model) Model {
 	t.Helper()
 	updated, cmd := m.Update(keyMsg("d"))
 	m = updated.(Model)
+	if cmd != nil || m.confirmDelete == nil {
+		t.Fatal("d on the queue must ask for confirmation first")
+	}
+	updated, cmd = m.Update(keyMsg("y"))
+	m = updated.(Model)
 	if cmd == nil {
-		t.Fatal("d on the queue must return the delete command")
+		t.Fatal("y must return the delete command")
 	}
 	updated, cmd = m.Update(cmd())
 	m = updated.(Model)
@@ -945,4 +950,86 @@ func deleteQueued(t *testing.T, m Model) Model {
 		t.Fatal("demo delete must not refetch the queue")
 	}
 	return m
+}
+
+// d asks on the help row before deleting a queue document, y confirms and
+// any other key or a click cancels. Backspace never deletes
+func TestQueueDeleteConfirmation(t *testing.T) {
+	const height = 30
+	m := NewDemoModel()
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: height})
+	m = updated.(Model)
+	m.activeTab = TabQueue
+	m.cursor = 1
+	target := m.queue.Items[1]
+	before := len(m.queue.Items)
+
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyBackspace})
+	m = updated.(Model)
+	if cmd != nil || m.confirmDelete != nil {
+		t.Fatal("backspace must not start a delete")
+	}
+
+	updated, cmd = m.Update(keyMsg("d"))
+	m = updated.(Model)
+	if cmd != nil {
+		t.Fatal("d must not delete before confirmation")
+	}
+	lines := strings.Split(m.View(), "\n")
+	if len(lines) != height {
+		t.Errorf("view has %d lines while confirming, want %d", len(lines), height)
+	}
+	want := "Delete " + target.DocumentName + "? y/n"
+	if last := stripANSI(lines[len(lines)-1]); last != want {
+		t.Errorf("help row = %q, want %q", last, want)
+	}
+
+	// Any other key cancels, including q which must not quit here
+	for _, k := range []tea.KeyMsg{keyMsg("n"), keyMsg("q"), {Type: tea.KeyEsc}, keyMsg("d")} {
+		if m.confirmDelete == nil {
+			updated, _ = m.Update(keyMsg("d"))
+			m = updated.(Model)
+		}
+		updated, cmd = m.Update(k)
+		m = updated.(Model)
+		if cmd != nil || m.confirmDelete != nil {
+			t.Errorf("key %q must cancel without a command", k.String())
+		}
+		if len(m.queue.Items) != before {
+			t.Fatalf("key %q deleted a document", k.String())
+		}
+	}
+	if view := m.View(); strings.Contains(view, "? y/n") {
+		t.Error("prompt still shown after cancel")
+	}
+
+	// A click cancels too
+	updated, _ = m.Update(keyMsg("d"))
+	m = updated.(Model)
+	updated, _ = m.Update(tea.MouseMsg{X: 5, Y: listRowsStartY, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress})
+	m = updated.(Model)
+	if m.confirmDelete != nil || m.cursor != 1 {
+		t.Errorf("click must only cancel the prompt (confirm %v, cursor %d)", m.confirmDelete, m.cursor)
+	}
+
+	// The prompt names the document it was opened for and y deletes it
+	m = deleteQueued(t, m)
+	if len(m.queue.Items) != before-1 {
+		t.Fatalf("queue has %d items after y, want %d", len(m.queue.Items), before-1)
+	}
+	for _, q := range m.queue.Items {
+		if q.Id == target.Id {
+			t.Errorf("confirmed document %d not deleted", target.Id)
+		}
+	}
+
+	// The prompt is truncated to stay on one line in narrow terminals
+	updated, _ = m.Update(tea.WindowSizeMsg{Width: 30, Height: height})
+	m = updated.(Model)
+	updated, _ = m.Update(keyMsg("d"))
+	m = updated.(Model)
+	lines = strings.Split(m.View(), "\n")
+	if w := lipgloss.Width(lines[len(lines)-1]); w > 30 {
+		t.Errorf("prompt is %d wide, must fit 30", w)
+	}
 }

@@ -71,6 +71,21 @@ func (m Model) fetchAll() tea.Cmd {
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		// A pending delete confirmation takes the next key: y deletes,
+		// anything else cancels
+		if m.confirmDelete != nil {
+			id := m.confirmDelete.Id
+			m.confirmDelete = nil
+			switch msg.String() {
+			case "y", "Y":
+				m.loading = true
+				return m, m.deleteQueuedDocument(id)
+			case "ctrl+c":
+				return m, tea.Quit
+			}
+			return m, nil
+		}
+
 		// Search input mode captures every key so typing q or h does not
 		// quit or switch tabs
 		if m.searching {
@@ -117,10 +132,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.setTab((m.activeTab + 1) % tabCount)
 		case "shift+tab", "left", "h":
 			return m, m.setTab((m.activeTab - 1 + tabCount) % tabCount)
-		case "d", "delete", "backspace":
-			if m.activeTab == TabQueue {
-				m.loading = true
-				return m, m.deleteSelectedExpense()
+		case "d", "delete":
+			if m.activeTab == TabQueue && m.queue != nil && m.cursor >= 0 && m.cursor < len(m.queue.Items) {
+				doc := m.queue.Items[m.cursor]
+				m.confirmDelete = &doc
 			}
 		case "up", "k":
 			m.scrollUp()
@@ -303,6 +318,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.fetchQueue
 
 	case tea.MouseMsg:
+		if m.confirmDelete != nil && msg.Action == tea.MouseActionPress {
+			m.confirmDelete = nil
+			return m, nil
+		}
 		if m.debugMouse {
 			m.lastMouse = fmt.Sprintf("mouse x=%d y=%d button=%d action=%d width=%d", msg.X, msg.Y, msg.Button, msg.Action, m.width)
 		}

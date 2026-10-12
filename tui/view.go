@@ -75,6 +75,9 @@ func (m Model) View() string {
 		helpText = m.lastMouse
 	}
 	help := HelpStyle.Render(helpText)
+	if m.confirmDelete != nil {
+		help = HelpStyle.Foreground(warningColor).Render(m.deletePrompt())
+	}
 
 	content := b.String()
 	if m.height > 0 {
@@ -88,6 +91,24 @@ func (m Model) View() string {
 	}
 
 	return content + help
+}
+
+// deletePrompt asks to confirm the pending queue delete, with the document
+// name truncated so the prompt stays on one line
+func (m Model) deletePrompt() string {
+	d := m.confirmDelete
+	name := d.DocumentName
+	if name == "" {
+		name = d.DocumentCode
+	}
+	if name == "" {
+		name = fmt.Sprintf("document %d", d.Id)
+	}
+	const frame = "Delete ? y/n"
+	if avail := m.width - len(frame) - 1; m.width > 0 && avail >= 4 {
+		name = truncate(name, avail)
+	}
+	return fmt.Sprintf("Delete %s? y/n", name)
 }
 
 // tabOrder is the display order of the tab bar, shared with click handling

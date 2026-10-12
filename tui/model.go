@@ -86,8 +86,9 @@ type Model struct {
 	fetchingMore   bool   // A next-page fetch is in flight
 	listGen        int    // List generation, stale page fetches are dropped
 	demoMode       bool
-	debugMouse     bool   // SOLO_MOUSE_DEBUG=1, show raw mouse events
-	lastMouse      string // Last mouse event, for the debug overlay
+	confirmDelete  *client.QueuedExpense // Queue document awaiting y/n
+	debugMouse     bool                  // SOLO_MOUSE_DEBUG=1, show raw mouse events
+	lastMouse      string                // Last mouse event, for the debug overlay
 
 	pageSize int
 }

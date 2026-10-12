@@ -206,21 +206,10 @@ func (m *Model) maybeFetchMore() tea.Cmd {
 	return nil
 }
 
-func (m Model) deleteSelectedExpense() tea.Cmd {
-	if m.activeTab != TabQueue || m.queue == nil || len(m.queue.Items) == 0 {
-		return nil
-	}
-
-	// Safety check for index
-	idx := m.cursor
-	if idx < 0 || idx >= len(m.queue.Items) {
-		return nil
-	}
-
-	id := m.queue.Items[idx].Id
-
+// deleteQueuedDocument deletes a queued document by id. Demo mode has no
+// client, the success handler removes it locally
+func (m Model) deleteQueuedDocument(id int) tea.Cmd {
 	if m.demoMode {
-		// Demo mode has no client, the success handler removes it locally
 		return func() tea.Msg { return deleteSuccessMsg{id} }
 	}
 	c := m.client
