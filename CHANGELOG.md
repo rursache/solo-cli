@@ -1,4 +1,4 @@
-## [Unreleased]
+## [1.8.0]
 
 ### Added
 - **Invoice commands**: `solo-cli invoice <code>` shows an issued invoice with its line items, `invoice download <code>` saves the PDF (`--xml` for the e-Factura XML, `--original` for an uploaded invoice), `invoice paid <code> [YYYY-MM-DD]` and `invoice unpaid <code>` change the payment state and `invoice delete <code>` deletes the newest invoice. The code is the new last column of `solo-cli revenues`
