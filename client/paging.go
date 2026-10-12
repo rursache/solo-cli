@@ -114,14 +114,15 @@ func (c *Client) ListAllRejectedRevenues(pageSize int) ([]RejectedRevenue, error
 	})
 }
 
-// ListAllEFactura pages through the received e-Factura documents
+// ListAllEFactura pages through the received e-Factura documents. Live
+// TotalResults is the length of the returned page, so only full pages count
 func (c *Client) ListAllEFactura(pageSize int, search string) ([]EFactura, error) {
 	return fetchAll(pageSize, func(start, max int) ([]EFactura, *int, error) {
 		resp, err := c.ListEFactura(start, max, search)
 		if err != nil {
 			return nil, nil, err
 		}
-		return resp.Items, resp.TotalResults, nil
+		return resp.Items, nil, nil
 	})
 }
 

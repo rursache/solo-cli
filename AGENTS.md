@@ -105,7 +105,7 @@ All API endpoints are under `https://falcon.solo.ro`:
 | `/api/local-storage/upload/{uploadID}` | POST | Multipart file upload |
 | `/api/financial-documents/save/{expenses or revenues}/{uploadID}` | POST | Confirm uploaded document |
 
-List endpoints accept JSON bodies with `StartIndex`, `MaxResults`, `SearchText`, `SortBy`, and `SortAsc` fields. `revenues/list` search does not match invoice codes, `client.FindRevenueByCode` pages the list instead. Invoice dates carry a `+02:00`/`+03:00` offset and request dates are sent as Bucharest midnight (`client.InvoiceAPIDate`)
+List endpoints accept JSON bodies with `StartIndex`, `MaxResults`, `SearchText`, `SortBy`, and `SortAsc` fields. `TotalResults` cannot be trusted: revenues, expenses, queued, rejected and customers send `null`, e-Factura sends the length of the returned page. `client.fetchAll` (CLI) and the TUI (`listMore` per tab) keep paging while pages come back full when the total is null or from e-Factura, a non-null total from any other list still ends paging once reached. `revenues/list` search does not match invoice codes, `client.FindRevenueByCode` pages the list instead. Invoice dates carry a `+02:00`/`+03:00` offset and request dates are sent as Bucharest midnight (`client.InvoiceAPIDate`)
 
 ### TUI Architecture
 

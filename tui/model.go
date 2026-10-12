@@ -90,10 +90,13 @@ type Model struct {
 	taxesLines     int    // Total line count of taxes content
 	fetchingMore   bool   // A next-page fetch is in flight
 	listGen        int    // List generation, stale page fetches are dropped
-	demoMode       bool
-	confirmDelete  *client.QueuedExpense // Queue document awaiting y/n
-	debugMouse     bool                  // SOLO_MOUSE_DEBUG=1, show raw mouse events
-	lastMouse      string                // Last mouse event, for the debug overlay
+	// listMore is set per list tab when its last page came back full, the
+	// paging signal for lists whose TotalResults is null or unreliable
+	listMore      [tabCount]bool
+	demoMode      bool
+	confirmDelete *client.QueuedExpense // Queue document awaiting y/n
+	debugMouse    bool                  // SOLO_MOUSE_DEBUG=1, show raw mouse events
+	lastMouse     string                // Last mouse event, for the debug overlay
 
 	pageSize int
 }

@@ -1352,3 +1352,63 @@ func TestTaxEstimateYearFlow(t *testing.T) {
 		t.Error("summary after a refresh must refetch the estimate")
 	}
 }
+
+// Live revenues and expenses answer TotalResults null and e-Factura the page
+// length, so a full page must keep paging and a short one must end the list
+func TestListPagingWithoutReliableTotal(t *testing.T) {
+	m := NewDemoModel()
+	m.demoMode = false
+	m.pageSize = 20
+	m.rejected = &client.RejectedExpenseResponse{}
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 18})
+	m = updated.(Model)
+
+	page := func(n int) []client.Expense {
+		items := make([]client.Expense, n)
+		for i := range items {
+			items[i] = client.Expense{SupplierName: fmt.Sprintf("Supplier %d", i), Total: 10}
+		}
+		return items
+	}
+	updated, _ = m.Update(expensesMsg(&client.ExpenseListResponse{Items: page(20)}))
+	m = updated.(Model)
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRight})
+	m = updated.(Model)
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRight})
+	m = updated.(Model)
+	if m.activeTab != TabExpenses {
+		t.Fatalf("active tab %v", m.activeTab)
+	}
+	if view := stripANSI(m.View()); !strings.Contains(view, "of 20+") {
+		t.Error("a full page with a null total must show that more may follow")
+	}
+
+	m.cursor = 15
+	updated, cmd := m.Update(keyMsg("j"))
+	m = updated.(Model)
+	if cmd == nil || !m.fetchingMore {
+		t.Fatal("no next-page fetch after a full page with a null total")
+	}
+	updated, _ = m.Update(expensesPageMsg{resp: &client.ExpenseListResponse{Items: page(5)}, gen: m.listGen})
+	m = updated.(Model)
+	if view := stripANSI(m.View()); !strings.Contains(view, "of 25") || strings.Contains(view, "of 25+") {
+		t.Error("a short page must end the list")
+	}
+	m.cursor = 23
+	if _, cmd = m.Update(keyMsg("j")); cmd != nil {
+		t.Error("fetch after the short last page")
+	}
+
+	full := 20
+	updated, _ = m.Update(efacturaMsg(&client.EFacturaListResponse{Items: make([]client.EFactura, 20), TotalResults: &full}))
+	m = updated.(Model)
+	if _, _, more := m.listCounts(TabEFactura); !more {
+		t.Error("e-Factura TotalResults equal to the page length must not end the list")
+	}
+
+	updated, _ = m.Update(revenuesMsg(&client.RevenueListResponse{Items: make([]client.Revenue, 20)}))
+	m = updated.(Model)
+	if cmd := m.setTab(TabChart); cmd == nil {
+		t.Error("the Chart tab must load the next revenue page when the total is null")
+	}
+}

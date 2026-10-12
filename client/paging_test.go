@@ -143,3 +143,20 @@ func TestListAllDefaultPageSize(t *testing.T) {
 		t.Errorf("MaxResults = %d, %v", max, err)
 	}
 }
+
+// Live e-Factura answers TotalResults with the length of the page it sent
+func TestListAllEFacturaIgnoresPageTotal(t *testing.T) {
+	c := newTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req listRequest
+		json.NewDecoder(r.Body).Decode(&req)
+		var items []string
+		for i := req.StartIndex; i < 5 && i < req.StartIndex+req.MaxResults; i++ {
+			items = append(items, fmt.Sprintf(`{"SerialCode":"EF-%d"}`, i))
+		}
+		fmt.Fprintf(w, `{"Items":[%s],"TotalResults":%d}`, strings.Join(items, ","), len(items))
+	}))
+	all, err := c.ListAllEFactura(2, "")
+	if err != nil || len(all) != 5 || all[4].SerialCode != "EF-4" {
+		t.Errorf("efactura = %+v, %v", all, err)
+	}
+}

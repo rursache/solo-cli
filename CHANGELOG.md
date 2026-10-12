@@ -31,6 +31,7 @@
 - **Revenues with foreign currency invoices**: `solo-cli revenues` and the TUI Revenues tab failed to load on accounts with invoices in another currency, because SOLO.ro sends their exchange rate as an object
 - **Demo mode crashes**: pressing `r` or deleting a queue document in `solo-cli demo` no longer crashes, refresh does nothing and the delete removes the document from the mock list
 - **CLI lists stopped at 100 items**: `revenues`, `expenses`, `queue`, `efactura`, `revenues queue`, `revenues rejected`, `clients` and the rejected documents warnings now fetch every page, `page_size` from the config sets how many items each request asks for. If SOLO.ro never ends a list the command stops after 1000 pages and warns on stderr
+- **TUI lists stopped at the first page**: the Revenues, Expenses and e-Factura tabs never loaded more than `page_size` items and the Chart tab only counted the first page of invoices, because SOLO.ro sends no usable total for these lists. They now keep loading while pages come back full and the counter shows `of N+` while more may follow
 
 ## [1.7.2]
 

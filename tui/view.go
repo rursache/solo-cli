@@ -197,8 +197,11 @@ func (m Model) renderList(total int, header string, row func(i int) string) stri
 	size := m.tabViewportSize()
 
 	// total is the loaded item count; the server may report more available
-	_, available := m.loadedAndTotal()
+	_, available, more := m.listCounts(m.activeTab)
 	showing := fmt.Sprintf("Showing %d-%d of %d", m.viewportOffset+1, min(m.viewportOffset+size, total), available)
+	if more && available == total {
+		showing += "+"
+	}
 	b.WriteString(m.searchAndShowingLine(showing))
 	b.WriteString("\n\n")
 

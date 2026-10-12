@@ -153,12 +153,17 @@ func (m Model) fetchActiveList() tea.Cmd {
 	return nil
 }
 
-// loadedAndTotal returns how many items the active tab has loaded and the
-// server-reported total (equal to loaded when the API omits TotalResults)
-func (m Model) loadedAndTotal() (int, int) {
+// notePage records whether the last page fetched for tab came back full
+func (m *Model) notePage(tab Tab, n int) {
+	m.listMore[tab] = n >= m.pageSize
+}
+
+// listState returns how many items tab has loaded and the TotalResults to
+// trust, nil when the server sends null or, for e-Factura, the page length
+func (m Model) listState(tab Tab) (int, *int) {
 	var loaded int
 	var total *int
-	switch m.activeTab {
+	switch tab {
 	case TabRevenues:
 		if m.revenues != nil {
 			loaded, total = len(m.revenues.Items), m.revenues.TotalResults
@@ -176,21 +181,31 @@ func (m Model) loadedAndTotal() (int, int) {
 			loaded, total = len(m.queue.Items), m.queue.TotalResults
 		}
 	}
-	if total != nil && *total > loaded {
-		return loaded, *total
+	if tab == TabEFactura {
+		total = nil
 	}
-	return loaded, loaded
+	return loaded, total
+}
+
+// listCounts returns the loaded count of tab, the total to show (loaded when
+// unknown) and whether another page may exist
+func (m Model) listCounts(tab Tab) (loaded, total int, more bool) {
+	loaded, t := m.listState(tab)
+	if t != nil {
+		return loaded, max(*t, loaded), *t > loaded
+	}
+	return loaded, loaded, m.listMore[tab]
 }
 
 // fetchRestOfRevenues loads the next revenue page unconditionally. The
 // Chart tab needs the complete invoice list to aggregate by month, so it
 // chains this until everything is loaded
 func (m *Model) fetchRestOfRevenues() tea.Cmd {
-	if m.demoMode || m.fetchingMore || m.revenues == nil || m.revenues.TotalResults == nil {
+	if m.demoMode || m.fetchingMore || m.revenues == nil {
 		return nil
 	}
-	loaded := len(m.revenues.Items)
-	if loaded >= *m.revenues.TotalResults {
+	loaded, _, more := m.listCounts(TabRevenues)
+	if !more {
 		return nil
 	}
 	m.fetchingMore = true
@@ -211,8 +226,8 @@ func (m *Model) maybeFetchMore() tea.Cmd {
 	if m.fetchingMore || m.demoMode || !m.isListTab() {
 		return nil
 	}
-	loaded, total := m.loadedAndTotal()
-	if loaded >= total || m.cursor < loaded-m.tabViewportSize() {
+	loaded, _, more := m.listCounts(m.activeTab)
+	if !more || m.cursor < loaded-m.tabViewportSize() {
 		return nil
 	}
 	m.fetchingMore = true

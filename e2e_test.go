@@ -53,10 +53,17 @@ type mockAPI struct {
 	listReqs map[string][]string
 }
 
-// servePage answers a list request with the StartIndex/MaxResults slice of
-// items. withTotal false answers TotalResults null like the queued, rejected
-// and customers lists do live
-func (m *mockAPI) servePage(w http.ResponseWriter, r *http.Request, withTotal bool, items ...string) {
+// listTotal is what a mock list answers in TotalResults
+type listTotal int
+
+const (
+	totalNull listTotal = iota // null, like the revenues, expenses, queued, rejected and customers lists live
+	totalPage                  // the length of the page sent, like e-Factura live
+	totalReal                  // the size of the whole list
+)
+
+// servePage answers a list request with the StartIndex/MaxResults slice of items
+func (m *mockAPI) servePage(w http.ResponseWriter, r *http.Request, mode listTotal, items ...string) {
 	var req struct{ StartIndex, MaxResults int }
 	json.NewDecoder(r.Body).Decode(&req)
 	m.mu.Lock()
@@ -67,7 +74,10 @@ func (m *mockAPI) servePage(w http.ResponseWriter, r *http.Request, withTotal bo
 		end = min(start+req.MaxResults, len(items))
 	}
 	total := "null"
-	if withTotal {
+	switch mode {
+	case totalPage:
+		total = fmt.Sprint(end - start)
+	case totalReal:
 		total = fmt.Sprint(len(items))
 	}
 	fmt.Fprintf(w, `{"Items":[%s],"TotalResults":%s}`, strings.Join(items[start:end], ","), total)
@@ -129,18 +139,18 @@ func newMockAPI(t *testing.T) *mockAPI {
 		fmt.Fprint(w, `{"Year":2026,"DisplayCurrency":"RON","TotalRevenues":50000,"TotalDeductibleExpenses":20000,"HasTaxes":true,"Taxes":6000}`)
 	})
 	mux.HandleFunc("/proxy/accounting/revenues/list", func(w http.ResponseWriter, r *http.Request) {
-		m.servePage(w, r, true,
+		m.servePage(w, r, totalNull,
 			`{"UniqueCode":"inv_001","SerialCode":"INV-001","ClientName":"ACME Corp","Total":1000.50,"IsPaid":true,"Currency":{"ShortName":"RON"}}`,
 			`{"UniqueCode":"inv_002","SerialCode":"INV-002","ClientName":"Globex","Total":250.25,"IsPaid":false,"Currency":{"ShortName":"EUR"}}`)
 	})
 	mux.HandleFunc("/proxy/accounting/expenses/list", func(w http.ResponseWriter, r *http.Request) {
-		m.servePage(w, r, true, `{"SupplierName":"Hosting SRL","Total":99.99,"Category":"Servicii","Currency":{"ShortName":"RON"}}`)
+		m.servePage(w, r, totalNull, `{"SupplierName":"Hosting SRL","Total":99.99,"Category":"Servicii","Currency":{"ShortName":"RON"}}`)
 	})
 	mux.HandleFunc("/proxy/accounting/expenses/rejected", func(w http.ResponseWriter, r *http.Request) {
-		m.servePage(w, r, false, `{"Id":7,"DocumentName":"blurry.jpg","Reason":"unreadable"}`)
+		m.servePage(w, r, totalNull, `{"Id":7,"DocumentName":"blurry.jpg","Reason":"unreadable"}`)
 	})
 	mux.HandleFunc("/proxy/accounting/expenses/queued", func(w http.ResponseWriter, r *http.Request) {
-		m.servePage(w, r, false, `{"Id":42,"DocumentName":"receipt.pdf","DaysPassed":3,"IsOverdue":true}`)
+		m.servePage(w, r, totalNull, `{"Id":42,"DocumentName":"receipt.pdf","DaysPassed":3,"IsOverdue":true}`)
 	})
 	mux.HandleFunc("/proxy/accounting/expenses/42", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodDelete {
@@ -149,7 +159,9 @@ func newMockAPI(t *testing.T) *mockAPI {
 		fmt.Fprint(w, `{}`)
 	})
 	mux.HandleFunc("/proxy/accounting/e-invoice/list-expenses", func(w http.ResponseWriter, r *http.Request) {
-		m.servePage(w, r, true, `{"SerialCode":"EF-9","TotalAmount":500,"CurrencyCode":"RON","InvoiceDate":"2026-06-01","PartyName":"Telecom SA"}`)
+		m.servePage(w, r, totalPage,
+			`{"SerialCode":"EF-9","TotalAmount":500,"CurrencyCode":"RON","InvoiceDate":"2026-06-01","PartyName":"Telecom SA"}`,
+			`{"SerialCode":"EF-10","TotalAmount":100,"CurrencyCode":"RON","InvoiceDate":"2026-07-01","PartyName":"Energie SA"}`)
 	})
 	mux.HandleFunc("/dashboard", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, `<script>var Principal = { CompanyCode: "company_%s" };</script>`, mockCompanyID)
@@ -196,13 +208,13 @@ func newMockAPI(t *testing.T) *mockAPI {
 		fmt.Fprintf(w, `{"Status":%q,"Template":"PFA_VIES","IsTransitioning":false,"RejectionReasonCode":null,"IsRejectionRecoverable":false}`, status)
 	})
 	mux.HandleFunc("/proxy/accounting/revenues/queued", func(w http.ResponseWriter, r *http.Request) {
-		m.servePage(w, r, false, `{"Id":51,"DocumentCode":"doc_rq","DocumentName":"incasare.pdf","DaysPassed":2,"IsOverdue":false}`)
+		m.servePage(w, r, totalNull, `{"Id":51,"DocumentCode":"doc_rq","DocumentName":"incasare.pdf","DaysPassed":2,"IsOverdue":false}`)
 	})
 	mux.HandleFunc("/proxy/accounting/revenues/rejected", func(w http.ResponseWriter, r *http.Request) {
-		m.servePage(w, r, false)
+		m.servePage(w, r, totalNull)
 	})
 	mux.HandleFunc("/proxy/accounting/customers/list", func(w http.ResponseWriter, r *http.Request) {
-		m.servePage(w, r, false,
+		m.servePage(w, r, totalNull,
 			`{"CustomerId":1,"Name":"Alpha SRL","Code1":"RO100","Email":"alpha@example.com"}`,
 			`{"CustomerId":2,"Name":"Beta SRL","Code1":"RO200","Email":"beta@example.com"}`,
 			`{"CustomerId":3,"Name":"Gamma PFA","Code1":"300","Email":"gamma@example.com"}`)
@@ -485,7 +497,7 @@ func TestE2EListCommands(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("efactura exit %d", code)
 	}
-	if out != "EF-9\t500.00 RON\t2026-06-01\tTelecom SA\n" {
+	if out != "EF-9\t500.00 RON\t2026-06-01\tTelecom SA\nEF-10\t100.00 RON\t2026-07-01\tEnergie SA\n" {
 		t.Errorf("efactura output: %q", out)
 	}
 
@@ -508,16 +520,15 @@ func TestE2EListPaging(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// TotalResults 2 keeps paging past the first page of one
+	// TotalResults null pages until a short or empty page
 	out, errOut, code := e.run(t, api, "revenues")
 	wantRev := "INV-001\t1000.50 RON\tPAID\tACME Corp\tinv_001\nINV-002\t250.25 EUR\tUNPAID\tGlobex\tinv_002\n"
 	if code != 0 || out != wantRev {
 		t.Errorf("revenues: code %d, out %q, stderr %q", code, out, errOut)
 	}
-	if got := api.takeListReqs("/proxy/accounting/revenues/list"); got != "0/1 1/1" {
-		t.Errorf("revenues pages = %q, want 0/1 1/1", got)
+	if got := api.takeListReqs("/proxy/accounting/revenues/list"); got != "0/1 1/1 2/1" {
+		t.Errorf("revenues pages = %q, want 0/1 1/1 2/1", got)
 	}
-	// TotalResults null pages until a short or empty page
 	if got := api.takeListReqs("/proxy/accounting/revenues/rejected"); got != "0/1" {
 		t.Errorf("rejected revenues pages = %q, want 0/1", got)
 	}
@@ -534,8 +545,8 @@ func TestE2EListPaging(t *testing.T) {
 	if code != 0 || out != "99.99 RON\tServicii\tHosting SRL\n" || !strings.Contains(errOut, "1 rejected expense(s)") {
 		t.Errorf("expenses: code %d, out %q, stderr %q", code, out, errOut)
 	}
-	if got := api.takeListReqs("/proxy/accounting/expenses/list"); got != "0/1" {
-		t.Errorf("expenses pages = %q, want 0/1", got)
+	if got := api.takeListReqs("/proxy/accounting/expenses/list"); got != "0/1 1/1" {
+		t.Errorf("expenses pages = %q, want 0/1 1/1", got)
 	}
 	if got := api.takeListReqs("/proxy/accounting/expenses/rejected"); got != "0/1 1/1" {
 		t.Errorf("rejected expenses pages = %q, want 0/1 1/1", got)
@@ -547,6 +558,16 @@ func TestE2EListPaging(t *testing.T) {
 	}
 	if got := api.takeListReqs("/proxy/accounting/expenses/queued"); got != "0/1 1/1" {
 		t.Errorf("queue pages = %q, want 0/1 1/1", got)
+	}
+
+	// e-Factura answers TotalResults with the page length, a full page of
+	// one must not end the list
+	out, _, code = e.run(t, api, "efactura")
+	if code != 0 || strings.Count(out, "\n") != 2 || !strings.Contains(out, "EF-10") {
+		t.Errorf("efactura: code %d, out %q", code, out)
+	}
+	if got := api.takeListReqs("/proxy/accounting/e-invoice/list-expenses"); got != "0/1 1/1 2/1" {
+		t.Errorf("efactura pages = %q, want 0/1 1/1 2/1", got)
 	}
 }
 

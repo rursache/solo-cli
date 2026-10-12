@@ -248,3 +248,31 @@ func TestLiveCountsSchemaAndConsistency(t *testing.T) {
 	}
 	t.Logf("dashboard awaiting review: revenues %d, expenses %d", summary.RevenuesAwaitingReview, summary.ExpensesAwaitingReview)
 }
+
+// Pins what TotalResults means per list, the paging code relies on it:
+// e-Factura sends the page length, revenues and expenses send null
+func TestLiveListTotals(t *testing.T) {
+	c := liveClient(t)
+
+	ef, err := c.ListEFactura(0, 3, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ef.TotalResults != nil && *ef.TotalResults != len(ef.Items) {
+		t.Errorf("e-Factura TotalResults %d for a page of %d, it no longer is the page length", *ef.TotalResults, len(ef.Items))
+	}
+
+	rev, err := c.ListRevenues(0, 3, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	exp, err := c.ListExpenses(0, 3, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, total := range map[string]*int{"revenues": rev.TotalResults, "expenses": exp.TotalResults} {
+		if total != nil {
+			t.Logf("%s TotalResults is no longer null: %d", name, *total)
+		}
+	}
+}

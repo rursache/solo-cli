@@ -55,9 +55,12 @@ func (m Model) renderChart() string {
 	b.WriteString(TitleStyle.Render(fmt.Sprintf("Monthly Revenues (%d)", year)))
 	b.WriteString("\n")
 
-	loaded, available := m.chartCoverage()
-	if loaded < available {
-		b.WriteString(LoadingStyle.Render(fmt.Sprintf("Loading invoices... %d of %d", loaded, available)))
+	if loaded, available, more := m.listCounts(TabRevenues); more {
+		progress := fmt.Sprintf("%d of %d", loaded, available)
+		if available == loaded {
+			progress = fmt.Sprintf("%d so far", loaded)
+		}
+		b.WriteString(LoadingStyle.Render("Loading invoices... " + progress))
 		b.WriteString("\n\n")
 	}
 
@@ -102,16 +105,4 @@ func (m Model) renderChart() string {
 	b.WriteString(SummaryValueStyle.Render(taxes.FormatRON(total)))
 
 	return b.String()
-}
-
-// chartCoverage reports how many invoices are loaded vs available
-func (m Model) chartCoverage() (int, int) {
-	if m.revenues == nil {
-		return 0, 0
-	}
-	loaded := len(m.revenues.Items)
-	if m.revenues.TotalResults != nil && *m.revenues.TotalResults > loaded {
-		return loaded, *m.revenues.TotalResults
-	}
-	return loaded, loaded
 }

@@ -269,10 +269,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case revenuesMsg:
 		m.revenues = msg
+		if msg != nil {
+			m.notePage(TabRevenues, len(msg.Items))
+		}
 		m.checkLoadingDone()
 
 	case expensesMsg:
 		m.expenses = msg
+		if msg != nil {
+			m.notePage(TabExpenses, len(msg.Items))
+		}
 		m.checkLoadingDone()
 
 	case rejectedMsg:
@@ -285,10 +291,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case queueMsg:
 		m.queue = msg
+		if msg != nil {
+			m.notePage(TabQueue, len(msg.Items))
+		}
 		m.checkLoadingDone()
 
 	case efacturaMsg:
 		m.efactura = msg
+		if msg != nil {
+			m.notePage(TabEFactura, len(msg.Items))
+		}
 		m.checkLoadingDone()
 
 	case revenuesPageMsg:
@@ -298,6 +310,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.revenues != nil && msg.resp != nil {
 			m.revenues.Items = append(m.revenues.Items, msg.resp.Items...)
 			m.revenues.TotalResults = msg.resp.TotalResults
+			m.notePage(TabRevenues, len(msg.resp.Items))
 		}
 		m.fetchingMore = false
 		// Keep loading until complete while the chart is visible
@@ -312,6 +325,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.expenses != nil && msg.resp != nil {
 			m.expenses.Items = append(m.expenses.Items, msg.resp.Items...)
 			m.expenses.TotalResults = msg.resp.TotalResults
+			m.notePage(TabExpenses, len(msg.resp.Items))
 		}
 		m.fetchingMore = false
 
@@ -322,6 +336,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.queue != nil && msg.resp != nil {
 			m.queue.Items = append(m.queue.Items, msg.resp.Items...)
 			m.queue.TotalResults = msg.resp.TotalResults
+			m.notePage(TabQueue, len(msg.resp.Items))
 		}
 		m.fetchingMore = false
 
@@ -332,6 +347,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.efactura != nil && msg.resp != nil {
 			m.efactura.Items = append(m.efactura.Items, msg.resp.Items...)
 			m.efactura.TotalResults = msg.resp.TotalResults
+			m.notePage(TabEFactura, len(msg.resp.Items))
 		}
 		m.fetchingMore = false
 

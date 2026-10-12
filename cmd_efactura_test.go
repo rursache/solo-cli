@@ -236,7 +236,7 @@ func TestEFacturaArgumentErrors(t *testing.T) {
 	}
 
 	out, _, exit := m.run(t, e, "efactura", "list")
-	if exit != 0 || out != "EF-9\t500.00 RON\t2026-06-01\tTelecom SA\n" {
+	if exit != 0 || out != "EF-9\t500.00 RON\t2026-06-01\tTelecom SA\nEF-10\t100.00 RON\t2026-07-01\tEnergie SA\n" {
 		t.Errorf("efactura list: exit %d, %q", exit, out)
 	}
 }
