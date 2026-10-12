@@ -38,10 +38,30 @@ func TestMain(m *testing.M) {
 // mockAPI is a fake SOLO.ro backend with hit counters for behavioral asserts
 type mockAPI struct {
 	server     *httptest.Server
+	sso        *httptest.Server
 	loginHits  atomic.Int32
+	ssoHits    atomic.Int32
+	bridgeHits atomic.Int32
 	deleteHits atomic.Int32
 	uploadHits atomic.Int32
+	ssoBroken  atomic.Bool
 }
+
+// Minimal cont.solo.ro pages, enough to drive the real SSO parser
+const (
+	e2eEmailPage = `<html><body><form method="post" id="emailForm" action="/login">
+<input type="email" name="Input.Email" value="" /><input name="__RequestVerificationToken" type="hidden" value="t1" /></form></body></html>`
+	e2ePasswordPage = `<html><body><form method="post" id="passwordForm" action="/login">
+<input type="hidden" name="Input.Email" value="user@example.com" /><input type="password" name="Input.Password" />
+%s<input name="__RequestVerificationToken" type="hidden" value="t2" /></form></body></html>`
+	e2eRecommendationPage = `<html><body>
+<form method="post" action="/login?handler=ActivateMfa"><button type="submit">Activate</button><input name="__RequestVerificationToken" type="hidden" value="t3" /></form>
+<form method="post" action="/login?handler=SkipMfa"><button type="submit">Skip</button><input name="__RequestVerificationToken" type="hidden" value="t4" /></form></body></html>`
+	e2eMFAPage = `<html><body><p class="subtitle">Code sent by SMS</p><form method="post" id="mfaForm" action="/login?handler=VerifyMfa">
+<input type="hidden" id="otpCodeHidden" name="Input.Code" value="" /><input type="checkbox" name="Input.RememberDevice" value="true" />
+<button type="submit" id="mfaSubmitBtn">Verify</button><input name="__RequestVerificationToken" type="hidden" value="t5" /></form></body></html>`
+	e2eSuccessPage = `<html><body><div id="loginSuccess" data-redirect-url="%s/bridge?redirect=%%2Fdashboard"></div></body></html>`
+)
 
 const mockCompanyID = "0123456789abcdef0123456789abcdef"
 
@@ -60,6 +80,11 @@ func newMockAPI(t *testing.T) *mockAPI {
 		}
 		http.SetCookie(w, &http.Cookie{Name: "solo_auth", Value: "e2e-token", Path: "/"})
 		json.NewEncoder(w).Encode(map[string]string{"AuthenticationStatus": "OK"})
+	})
+	mux.HandleFunc("/bridge", func(w http.ResponseWriter, r *http.Request) {
+		m.bridgeHits.Add(1)
+		http.SetCookie(w, &http.Cookie{Name: "solo_auth", Value: "e2e-token", Path: "/"})
+		http.Redirect(w, r, "/dashboard", http.StatusFound)
 	})
 	mux.HandleFunc("/proxy/accounting/dashboard/summary", func(w http.ResponseWriter, r *http.Request) {
 		if c, err := r.Cookie("solo_auth"); err != nil || c.Value != "e2e-token" {
@@ -112,6 +137,32 @@ func newMockAPI(t *testing.T) *mockAPI {
 
 	m.server = httptest.NewServer(mux)
 	t.Cleanup(m.server.Close)
+
+	m.sso = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		m.ssoHits.Add(1)
+		r.ParseForm()
+		if m.ssoBroken.Load() || r.URL.Path != "/login" {
+			fmt.Fprint(w, "<html><body><h1>Maintenance</h1></body></html>")
+			return
+		}
+		switch handler := r.URL.Query().Get("handler"); {
+		case r.Method == http.MethodGet:
+			fmt.Fprint(w, e2eEmailPage)
+		case handler == "SkipMfa":
+			fmt.Fprintf(w, e2eSuccessPage, m.server.URL)
+		case handler != "":
+			t.Errorf("unexpected SSO handler %q", handler)
+		case r.PostForm.Get("Input.Password") == "":
+			fmt.Fprintf(w, e2ePasswordPage, "")
+		case r.PostForm.Get("Input.Password") == "good-password":
+			fmt.Fprint(w, e2eRecommendationPage)
+		case r.PostForm.Get("Input.Password") == "mfa-password":
+			fmt.Fprint(w, e2eMFAPage)
+		default:
+			fmt.Fprintf(w, e2ePasswordPage, `<span class="field-validation-error">Email sau parolă greșită</span>`)
+		}
+	}))
+	t.Cleanup(m.sso.Close)
 	return m
 }
 
@@ -142,7 +193,10 @@ func newEnv(t *testing.T, password string) *env {
 func (e *env) run(t *testing.T, api *mockAPI, args ...string) (string, string, int) {
 	t.Helper()
 	cmd := exec.Command(binPath, append([]string{"--config", e.configPath}, args...)...)
-	cmd.Env = append(os.Environ(), "HOME="+e.home, "SOLO_API_BASE="+api.server.URL)
+	// The SSO mock is addressed as localhost so its cookies stay apart from
+	// the falcon mock on 127.0.0.1, like cont.solo.ro and falcon.solo.ro
+	ssoBase := strings.Replace(api.sso.URL, "127.0.0.1", "localhost", 1)
+	cmd.Env = append(os.Environ(), "HOME="+e.home, "SOLO_API_BASE="+api.server.URL, "SOLO_SSO_BASE="+ssoBase)
 	var stdout, stderr strings.Builder
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -236,8 +290,11 @@ func TestE2ESummaryAndSessionReuse(t *testing.T) {
 	if out != want {
 		t.Errorf("summary output:\n%q\nwant:\n%q", out, want)
 	}
-	if got := api.loginHits.Load(); got != 1 {
-		t.Errorf("login hits = %d, want 1", got)
+	if got := api.bridgeHits.Load(); got != 1 {
+		t.Errorf("SSO bridge hits = %d, want 1", got)
+	}
+	if got := api.loginHits.Load(); got != 0 {
+		t.Errorf("legacy login hits = %d, want 0", got)
 	}
 
 	// Cookies must persist with safe permissions and be reused on the next run
@@ -254,8 +311,52 @@ func TestE2ESummaryAndSessionReuse(t *testing.T) {
 	if code != 0 || out != want {
 		t.Errorf("second summary run: code %d, out %q", code, out)
 	}
-	if got := api.loginHits.Load(); got != 1 {
-		t.Errorf("login hits after cookie reuse = %d, want still 1", got)
+	if got := api.bridgeHits.Load(); got != 1 {
+		t.Errorf("SSO logins after cookie reuse = %d, want still 1", got)
+	}
+}
+
+func TestE2ELegacyFallback(t *testing.T) {
+	api := newMockAPI(t)
+	api.ssoBroken.Store(true)
+	e := newEnv(t, "good-password")
+
+	out, errOut, code := e.run(t, api, "summary")
+	if code != 0 || !strings.HasPrefix(out, "Year: 2026\n") {
+		t.Fatalf("summary via legacy login: code %d, out %q, stderr %q", code, out, errOut)
+	}
+	if api.loginHits.Load() != 1 || api.bridgeHits.Load() != 0 {
+		t.Errorf("legacy hits %d, bridge hits %d", api.loginHits.Load(), api.bridgeHits.Load())
+	}
+	if !strings.Contains(errOut, "legacy login") {
+		t.Errorf("stderr missing fallback note: %q", errOut)
+	}
+}
+
+// Without a terminal a 2FA account must fail clearly, and once known it
+// must not even start a login that would text another code
+func TestE2EMFANonInteractive(t *testing.T) {
+	api := newMockAPI(t)
+	e := newEnv(t, "mfa-password")
+
+	_, errOut, code := e.run(t, api, "summary")
+	if code != 1 || !strings.Contains(errOut, "two-factor") || !strings.Contains(errOut, "in a terminal") {
+		t.Fatalf("first run: code %d, stderr %q", code, errOut)
+	}
+	if api.loginHits.Load() != 0 {
+		t.Error("2FA page must never fall back to the legacy login")
+	}
+	if _, err := os.Stat(filepath.Join(e.home, ".config", "solo-cli", ".mfa-required")); err != nil {
+		t.Errorf("2FA flag not saved: %v", err)
+	}
+
+	hits := api.ssoHits.Load()
+	_, errOut, code = e.run(t, api, "summary")
+	if code != 1 || !strings.Contains(errOut, "two-factor") {
+		t.Errorf("second run: code %d, stderr %q", code, errOut)
+	}
+	if got := api.ssoHits.Load(); got != hits {
+		t.Errorf("second run contacted cont.solo.ro %d times, want 0", got-hits)
 	}
 }
 

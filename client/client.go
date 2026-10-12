@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/http/cookiejar"
 	"os"
 	"time"
 )
@@ -18,6 +17,9 @@ func init() {
 	if v := os.Getenv("SOLO_API_BASE"); v != "" {
 		baseURL = v
 	}
+	if v := os.Getenv("SOLO_SSO_BASE"); v != "" {
+		ssoBaseURL = v
+	}
 }
 
 const loginPath = "/api/security/login"
@@ -25,8 +27,13 @@ const loginPath = "/api/security/login"
 // Client wraps an HTTP client with cookie storage for SOLO.ro API
 type Client struct {
 	httpClient *http.Client
+	jar        *recordingJar
 	userAgent  string
 	CompanyID  string
+
+	// LoginFallback is set when the last Login fell back to the legacy
+	// JSON endpoint and says why the cont.solo.ro flow failed
+	LoginFallback string
 }
 
 // loginRequest represents the login request body
@@ -45,12 +52,9 @@ var ErrAuthenticationFailed = errors.New("authentication failed: invalid credent
 
 // New creates a new Client with cookie jar and user agent
 func New(userAgent string) (*Client, error) {
-	jar, err := cookiejar.New(nil)
-	if err != nil {
-		return nil, err
-	}
-
+	jar := newRecordingJar()
 	return &Client{
+		jar: jar,
 		httpClient: &http.Client{
 			Jar: jar,
 			// Bound every API call, a hung connection must not freeze
@@ -61,8 +65,25 @@ func New(userAgent string) (*Client, error) {
 	}, nil
 }
 
-// Login authenticates with SOLO.ro and stores session cookies
-func (c *Client) Login(username, password string) error {
+// Login signs in through cont.solo.ro and bridges the session to falcon.
+// prompt is asked for the 2FA code when the account needs one, with a nil
+// prompt reaching the code page returns ErrMFARequired. The legacy JSON
+// login is used only when the SSO pages stop matching the known flow, never
+// after rejected credentials or a 2FA page
+func (c *Client) Login(username, password string, prompt MFAPromptFunc) error {
+	c.LoginFallback = ""
+	c.clearForLogin()
+	err := c.ssoLogin(username, password, prompt)
+	var se *ssoStructuralError
+	if !errors.As(err, &se) {
+		return err
+	}
+	c.LoginFallback = se.reason
+	c.clearForLogin()
+	return c.legacyLogin(username, password)
+}
+
+func (c *Client) legacyLogin(username, password string) error {
 	var resp loginResponse
 	err := c.doJSON("POST", loginPath, "/authentication", loginRequest{UserName: username, Password: password}, &resp)
 	if err != nil {

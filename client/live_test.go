@@ -36,7 +36,7 @@ func liveClient(t *testing.T) *Client {
 			return c
 		}
 	}
-	if err := c.Login(cfg.Username, cfg.Password); err != nil {
+	if err := c.Login(cfg.Username, cfg.Password, nil); err != nil {
 		t.Fatalf("live login failed: %v", err)
 	}
 	c.SaveCookies()

@@ -1,3 +1,8 @@
+## [Unreleased]
+
+### Changed
+- **Sign in through cont.solo.ro**: login now uses the new SOLO.ro account pages and bridges the session to the app, falling back to the old login only if those pages change. Accounts with two-factor authentication get a code prompt in the terminal, the "remember this device" option is always ticked so later runs skip the code for 14 days. Non-interactive runs (scripts, cron) never trigger a code SMS on their own: they stop with a message asking you to run `solo-cli` once in a terminal
+
 ## [1.7.2]
 
 ### Fixed

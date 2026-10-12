@@ -34,9 +34,11 @@ Package-level map (read the actual files for details, names are self-describing)
 
 The application authenticates against the SOLO.ro API at `https://falcon.solo.ro`.
 
-- **Login**: POST to `/api/security/login` with `UserName` and `Password` in JSON body. A successful login returns `AuthenticationStatus: "OK"` and sets session cookies.
-- **Cookie persistence**: After login, cookies are serialized to `~/.config/solo-cli/cookies.json` (file permissions 0600). On startup, the app loads saved cookies, validates them with a test API call (`GetSummary`), and only re-authenticates if they are expired or invalid.
-- **The key auth cookie is named `solo_auth`**. The cookie loader checks specifically for this cookie when determining if a saved session is valid.
+- **Login** (`client/sso.go`, `client/htmlform.go`): signs in on `https://cont.solo.ro` (ASP.NET Razor Pages, `ssoBaseURL`, env override `SOLO_SSO_BASE`): GET `/login?returnTo=%2fdashboard`, post email, post password, post `SkipMfa` on the 2FA recommendation page (never `ActivateMfa`), then GET the falcon bridge from `data-redirect-url` (https `solo.ro` hosts only) which sets `solo_auth`. Forms are parsed with `golang.org/x/net/html`, every hidden input (antiforgery token) is posted back. Max 8 pages
+- **2FA**: `Login(username, password, prompt)` takes a `client.MFAPromptFunc`. `setup.go` passes one only when stdin is a TTY (code prompt on stderr, empty or `r` resends, the remember-device box is always posted checked). Without a prompt the code page returns `ErrMFARequired` and `setup.go` writes `.mfa-required` in the config dir, after which non-interactive runs refuse to start a login (reaching the code page texts the user) unless a remember cookie is saved
+- **Legacy fallback**: POST `/api/security/login` (`UserName`/`Password`, `AuthenticationStatus: "OK"`) is used only on a structural SSO failure (unknown page, missing form, non-2xx, off-domain bridge, no `solo_auth` after the bridge, too many steps), never after rejected credentials or a 2FA page. `Client.LoginFallback` says why
+- **Cookie persistence**: `client/cookies.go` wraps `cookiejar.Jar` to record Set-Cookie metadata (domain, path, expiry, host-only, secure) and saves falcon and cont.solo.ro cookies to `~/.config/solo-cli/cookies.json` (0600). The `__Host-solo_remember` cookie (14 days) spares the 2FA code. Before a fresh login every cookie except the remember one is dropped. Old name/value-only files load as falcon host-only cookies. On startup saved cookies are validated with `GetSummary`
+- **The key auth cookie is named `solo_auth`**, a session cookie with no expiry (zero `Expires` counts as valid).
 - **User-Agent**: Configurable via config; defaults to a Chrome user-agent string. All API requests include this header along with `Origin`, `Referer`, and `Accept` headers to mimic browser behavior.
 
 ### SOLO.ro API
@@ -45,7 +47,8 @@ All API endpoints are under `https://falcon.solo.ro`:
 
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
-| `/api/security/login` | POST | Authentication |
+| `https://cont.solo.ro/login` | GET/POST forms | SSO authentication (then `/bridge` on falcon) |
+| `/api/security/login` | POST | Legacy authentication fallback |
 | `/proxy/accounting/dashboard/summary` | GET | Year summary (revenues, expenses, taxes) |
 | `/proxy/accounting/revenues/list` | POST | List revenue invoices |
 | `/proxy/accounting/revenues/summary` | GET | Revenue totals |

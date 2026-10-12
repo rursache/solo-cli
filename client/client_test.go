@@ -17,9 +17,9 @@ func newTestClient(t *testing.T, handler http.Handler) *Client {
 	server := httptest.NewServer(handler)
 	t.Cleanup(server.Close)
 
-	orig := baseURL
-	baseURL = server.URL
-	t.Cleanup(func() { baseURL = orig })
+	orig, origSSO := baseURL, ssoBaseURL
+	baseURL, ssoBaseURL = server.URL, server.URL
+	t.Cleanup(func() { baseURL, ssoBaseURL = orig, origSSO })
 
 	c, err := New("test-agent")
 	if err != nil {
@@ -28,8 +28,14 @@ func newTestClient(t *testing.T, handler http.Handler) *Client {
 	return c
 }
 
-func TestLoginSuccess(t *testing.T) {
+// A cont.solo.ro outage (here a 404 for the SSO page) falls back to the
+// legacy JSON login
+func TestLegacyLoginSuccess(t *testing.T) {
 	c := newTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/login" {
+			http.NotFound(w, r)
+			return
+		}
 		if r.URL.Path != "/api/security/login" || r.Method != "POST" {
 			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
 		}
@@ -38,20 +44,28 @@ func TestLoginSuccess(t *testing.T) {
 		if body["UserName"] != "user" || body["Password"] != "pass" {
 			t.Errorf("credentials not sent: %v", body)
 		}
+		http.SetCookie(w, &http.Cookie{Name: "solo_auth", Value: "tok", Path: "/"})
 		json.NewEncoder(w).Encode(map[string]string{"AuthenticationStatus": "OK"})
 	}))
 
-	if err := c.Login("user", "pass"); err != nil {
+	if err := c.Login("user", "pass", nil); err != nil {
 		t.Errorf("Login: %v", err)
+	}
+	if !strings.Contains(c.LoginFallback, "HTTP 404") {
+		t.Errorf("LoginFallback = %q", c.LoginFallback)
 	}
 }
 
-func TestLoginInvalidCredentials(t *testing.T) {
+func TestLegacyLoginInvalidCredentials(t *testing.T) {
 	c := newTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/login" {
+			http.NotFound(w, r)
+			return
+		}
 		json.NewEncoder(w).Encode(map[string]string{"AuthenticationStatus": "FAILED"})
 	}))
 
-	if err := c.Login("user", "wrong"); err != ErrAuthenticationFailed {
+	if err := c.Login("user", "wrong", nil); err != ErrAuthenticationFailed {
 		t.Errorf("Login = %v, want ErrAuthenticationFailed", err)
 	}
 }
