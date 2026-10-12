@@ -40,25 +40,3 @@ func (c *Client) ListCustomers(startIndex, maxResults int, search string) (*Cust
 	}
 	return &result, nil
 }
-
-// maxCustomerPages bounds ListAllCustomers in case the server ignores paging
-const maxCustomerPages = 100
-
-// ListAllCustomers pages through the clients directory
-func (c *Client) ListAllCustomers(pageSize int, search string) ([]Customer, error) {
-	if pageSize <= 0 {
-		pageSize = 100
-	}
-	var all []Customer
-	for page := 0; page < maxCustomerPages; page++ {
-		resp, err := c.ListCustomers(len(all), pageSize, search)
-		if err != nil {
-			return nil, err
-		}
-		all = append(all, resp.Items...)
-		if len(resp.Items) < pageSize || (resp.TotalResults != nil && len(all) >= *resp.TotalResults) {
-			break
-		}
-	}
-	return all, nil
-}

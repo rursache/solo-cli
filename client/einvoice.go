@@ -77,28 +77,12 @@ func (c *Client) FindRevenueByCode(code string) (*Revenue, error) {
 		}
 	}
 
-	const pageSize = 200
-	var serialMatch *Revenue
-	for start, pages := 0, 0; pages < 100; pages++ {
-		resp, err := c.ListRevenues(start, pageSize, "")
-		if err != nil {
-			return nil, err
-		}
-		for i := range resp.Items {
-			if resp.Items[i].UniqueCode == code {
-				return &resp.Items[i], nil
-			}
-			if serialMatch == nil && strings.EqualFold(resp.Items[i].SerialCode, code) {
-				serialMatch = &resp.Items[i]
-			}
-		}
-		start += len(resp.Items)
-		if len(resp.Items) < pageSize || (resp.TotalResults != nil && start >= *resp.TotalResults) {
-			break
-		}
+	all, err := c.ListAllRevenues(200, "")
+	if err != nil && !errors.Is(err, ErrListTruncated) {
+		return nil, err
 	}
-	if serialMatch != nil {
-		return serialMatch, nil
+	if r := matchRevenue(all, code); r != nil {
+		return r, nil
 	}
 	return nil, fmt.Errorf("no issued invoice with code or serial %q", code)
 }
