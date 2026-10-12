@@ -55,7 +55,7 @@ func main() {
 	case "queue", "q":
 		withClientArgs(runQueue, cmdArgs)
 	case "efactura", "einvoice", "ei":
-		withClient(runEFactura)
+		runEFacturaCmd(cmdArgs)
 	case "company":
 		withClient(runCompany)
 	case "taxes", "tax":
@@ -92,7 +92,9 @@ Commands:
                   download <code> [--xml | --original] [-o path] [-f]
   expenses        List expenses (aliases: expense, exp)
   queue           List expense queue (alias: q). Subcommands: delete <id>
-  efactura        List e-Factura documents (aliases: einvoice, ei)
+  efactura        List received e-Factura documents (aliases: einvoice, ei). Subcommands:
+                  status <invoice>, send <invoice>, expedite <invoice>, settings,
+                  settings set [--delay 0|2] [--contact-info yes|no]. Connecting the SPV happens on the web
   company         Show company profile
   upload <file>   Upload expense document (alias: up), --revenue (-r) for a revenue document
   setup-skills    Install AI skills for Claude Code and other agents
@@ -116,6 +118,7 @@ Examples:
   solo-cli upload -r invoice.pdf    # Upload revenue document
   solo-cli invoice paid <code> -y   # Mark an invoice paid today
   solo-cli invoice download <code>  # Save the invoice PDF
+  solo-cli efactura status INV-001  # e-Factura status of an issued invoice
   solo-cli -c ~/my-config.json rev  # Use custom config
   solo-cli expenses | grep -i "food"
 
