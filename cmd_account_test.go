@@ -253,8 +253,16 @@ func TestCompanyExtras(t *testing.T) {
 		t.Errorf("company output: %q", out)
 	}
 
-	// The base mock has no VIES or bank endpoints, company must still work
+	// Without the VIES and bank endpoints company must still work
 	base := newMockAPI(t)
+	baseHandler := base.server.Config.Handler
+	base.server.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/vies-profile/") || strings.Contains(r.URL.Path, "/bank-accounts/") {
+			http.NotFound(w, r)
+			return
+		}
+		baseHandler.ServeHTTP(w, r)
+	})
 	out, errOut, code := e.run(t, base, "company")
 	if code != 0 || !strings.HasSuffix(out, "CAEN: 6202 - IT consultancy\n") || !strings.Contains(errOut, "Warning: failed to get VIES profile") {
 		t.Errorf("company without extras: %d %q %q", code, out, errOut)

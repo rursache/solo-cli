@@ -45,6 +45,8 @@ type mockAPI struct {
 	deleteHits atomic.Int32
 	uploadHits atomic.Int32
 	ssoBroken  atomic.Bool
+	// alertsOn makes the VAT and procura alert endpoints report active alerts
+	alertsOn atomic.Bool
 }
 
 // Minimal cont.solo.ro pages, enough to drive the real SSO parser
@@ -125,6 +127,53 @@ func newMockAPI(t *testing.T) *mockAPI {
 	})
 	mux.HandleFunc("/proxy/accounting/company/caen-codes/company_"+mockCompanyID, func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, `[{"Id":1,"IsPrimary":true,"Code":"6201","Name":"Software development"},{"Id":2,"IsPrimary":false,"Code":"6202","Name":"IT consultancy"}]`)
+	})
+	mux.HandleFunc("/proxy/accounting/tax-declaration/tax-estimate/", func(w http.ResponseWriter, r *http.Request) {
+		// Matches the local calculator for the summary above (net 30000)
+		fmt.Fprint(w, `{"FiscalYear":2026,"TotalRevenues":50000,"HasDeductibleExpenses":true,"TotalDeductibleExpenses":20000,
+			"HasTaxableRevenue":true,"TaxableRevenue":30000,"IncomeTax":2700,"RetirementTax":0,"HealthTax":3000,"TotalTaxes":5700}`)
+	})
+	mux.HandleFunc("/proxy/accounting/tax-declaration/tax-dashboard/", func(w http.ResponseWriter, r *http.Request) {
+		switch strings.TrimPrefix(r.URL.Path, "/proxy/accounting/tax-declaration/tax-dashboard/") {
+		case "2024":
+			fmt.Fprint(w, `{"FiscalYear":2024,"ReportingFiscalYear":2025,"DeclarationStatus":"DeclarationAutoFiledOk","LastCompletedWorkflow":"wfc_test",
+				"LastCompletedOn":"2025-04-10","HasDueInFiscalYear":false,"TaxesSummary":{"IncomeTax":2000,"HealthTax":2500,"HealthOtherRevenuesTax":0,
+				"RetirementTax":0,"TotalTaxes":4500,"IncomeTaxDiscount":0}}`)
+		case "2023":
+			fmt.Fprint(w, `{"FiscalYear":2023,"ReportingFiscalYear":2024,"DeclarationStatus":"None","TaxesSummary":{"IncomeTax":null,"HealthTax":null,
+				"HealthOtherRevenuesTax":null,"RetirementTax":null,"TotalTaxes":0}}`)
+		default:
+			http.NotFound(w, r)
+		}
+	})
+	mux.HandleFunc("/proxy/accounting/vat/alert-status", func(w http.ResponseWriter, r *http.Request) {
+		status := "NotAvailable"
+		if m.alertsOn.Load() {
+			status = "DangerPending"
+		}
+		fmt.Fprintf(w, `{"Status":%q,"CriticalThresholdValue":300000}`, status)
+	})
+	mux.HandleFunc("/proxy/accounting/caen-update/alert-status", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, `{"Status":"NotAvailable","IsPfi":false}`)
+	})
+	mux.HandleFunc("/proxy/accounting/document-workflows/notarial-power-of-attorney/status", func(w http.ResponseWriter, r *http.Request) {
+		status := "NotAvailable"
+		if m.alertsOn.Load() {
+			status = "Pending"
+		}
+		fmt.Fprintf(w, `{"Status":%q,"Template":"PFA_VIES","IsTransitioning":false,"RejectionReasonCode":null,"IsRejectionRecoverable":false}`, status)
+	})
+	mux.HandleFunc("/proxy/accounting/revenues/queued", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, `{"Items":[{"Id":51,"DocumentCode":"doc_rq","DocumentName":"incasare.pdf","DaysPassed":2,"IsOverdue":false}],"TotalResults":null}`)
+	})
+	mux.HandleFunc("/proxy/accounting/revenues/rejected", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, `{"Items":[],"TotalResults":null}`)
+	})
+	mux.HandleFunc("/proxy/accounting/company/vies-profile/company_"+mockCompanyID, func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, `{"Data":{"Code3":null,"ViesProfileStatus":"NotRegistered","ViesWorkflowStatus":"None"},"Ok":true}`)
+	})
+	mux.HandleFunc("/proxy/accounting/bank-accounts/company_"+mockCompanyID, func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, `[{"Id":1,"Bank":{"Id":1,"Name":"Banca Test"},"BankName":null,"IBAN":"RO00TEST0000000000000001","Currency":{"Code":"RON","ShortName":"lei"}}]`)
 	})
 	mux.HandleFunc("/api/local-storage/upload/", func(w http.ResponseWriter, r *http.Request) {
 		m.uploadHits.Add(1)
@@ -223,7 +272,8 @@ func TestE2EVersionAndHelp(t *testing.T) {
 	if code != 0 {
 		t.Errorf("help exit code %d", code)
 	}
-	for _, cmd := range []string{"summary", "taxes", "revenues", "expenses", "queue", "efactura", "company", "upload", "setup-skills", "demo"} {
+	for _, cmd := range []string{"summary", "taxes", "declaration", "alerts", "revenues", "invoice", "efactura", "expenses", "queue", "upload",
+		"documents", "report", "company", "subscription", "referral", "clients", "rates", "setup-skills", "demo"} {
 		if !strings.Contains(out, cmd) {
 			t.Errorf("help output missing command %q", cmd)
 		}
@@ -517,5 +567,137 @@ func TestE2ETaxesMathAndConfigFile(t *testing.T) {
 	}
 	if taxCfg.SalariuMinimBrut != 4050 {
 		t.Errorf("salariu_minim_brut = %v, want 4050 (January 1 2026 value)", taxCfg.SalariuMinimBrut)
+	}
+}
+
+func TestE2ECompanyExtras(t *testing.T) {
+	api := newMockAPI(t)
+	e := newEnv(t, "good-password")
+
+	out, errOut, code := e.run(t, api, "company")
+	want := "Name: Test PFA\nCUI: 11111111\nReg: F1/1/2026\nAddress: Str. Exemplu 1\n" +
+		"CAEN: 6201 - Software development (principal)\nCAEN: 6202 - IT consultancy\n" +
+		"VIES status: NotRegistered\nBank: Banca Test - RO00TEST0000000000000001 (RON)\n"
+	if code != 0 || out != want {
+		t.Errorf("company: code %d\nstdout %q\nwant   %q\nstderr %q", code, out, want, errOut)
+	}
+}
+
+func TestE2ETaxesSOLOEstimate(t *testing.T) {
+	api := newMockAPI(t)
+	e := newEnv(t, "good-password")
+
+	out, errOut, code := e.run(t, api, "taxes")
+	if code != 0 {
+		t.Fatalf("taxes failed (%d): %s", code, errOut)
+	}
+	want := `
+SOLO Estimate (2026)
+══════════════════════════════════════════
+Taxable Income:       30000.00 RON
+CAS:                  0.00 RON
+CASS:                 3000.00 RON
+Income Tax:           2700.00 RON
+Total Taxes:          5700.00 RON
+Matches the local breakdown
+`
+	if !strings.HasSuffix(out, want) {
+		t.Errorf("taxes output must end with the SOLO estimate:\n%s", out)
+	}
+	if strings.Contains(errOut, "Warning") {
+		t.Errorf("unexpected warning: %q", errOut)
+	}
+}
+
+func TestE2EDeclaration(t *testing.T) {
+	api := newMockAPI(t)
+	e := newEnv(t, "good-password")
+
+	out, errOut, code := e.run(t, api, "declaration", "2024")
+	want := `Declaratia Unica 2024 (filed in 2025)
+══════════════════════════════════════════
+Status:               Filed at ANAF by SOLO (DeclarationAutoFiledOk)
+Last Completed:       2025-04-10
+
+CAS:                  0.00 RON
+CASS:                 2500.00 RON
+Income Tax:           2000.00 RON
+Total Taxes:          4500.00 RON
+
+Deadline:             25 May 2025 (passed)
+File or review at https://falcon.solo.ro/tax-declaration/dashboard
+`
+	if code != 0 || out != want {
+		t.Errorf("declaration 2024: code %d\nstdout %q\nwant   %q\nstderr %q", code, out, want, errOut)
+	}
+
+	out, _, code = e.run(t, api, "du", "2023")
+	if code != 0 || !strings.Contains(out, "Status:               Not started (None)\n\nTaxes:                not computed yet\n") {
+		t.Errorf("declaration 2023: code %d, out %q", code, out)
+	}
+
+	_, errOut, code = e.run(t, api, "declaration", "2019")
+	if code != 1 || !strings.HasPrefix(errOut, "Error: ") {
+		t.Errorf("unknown year: code %d, stderr %q", code, errOut)
+	}
+}
+
+func TestE2EAlerts(t *testing.T) {
+	api := newMockAPI(t)
+	e := newEnv(t, "good-password")
+
+	// No active alert keeps stdout empty for scripts
+	out, errOut, code := e.run(t, api, "alerts")
+	if code != 0 || out != "" || !strings.HasSuffix(errOut, "No alerts\n") {
+		t.Errorf("no alerts: code %d, out %q, stderr %q", code, out, errOut)
+	}
+	_, errOut, _ = e.run(t, api, "summary")
+	if strings.Contains(errOut, "Alert:") {
+		t.Errorf("summary printed alerts while none are active: %q", errOut)
+	}
+
+	api.alertsOn.Store(true)
+	out, _, code = e.run(t, api, "alerts")
+	want := "vat\tClose to the VAT threshold\tRevenues are getting close to the VAT exemption threshold of 300000 RON\thttps://falcon.solo.ro/vat\n" +
+		"procura\tNotarial power of attorney\tA power of attorney request is in progress (Pending)\thttps://falcon.solo.ro/procura\n"
+	if code != 0 || out != want {
+		t.Errorf("alerts: code %d\nstdout %q\nwant   %q", code, out, want)
+	}
+
+	// summary keeps its stdout and adds the alerts on stderr
+	out, errOut, code = e.run(t, api, "summary")
+	if code != 0 || out != "Year: 2026\nRevenues: 50000.00 RON\nExpenses: 20000.00 RON\nTaxes: 6000.00 RON\n" {
+		t.Errorf("summary stdout changed: code %d, out %q", code, out)
+	}
+	if !strings.Contains(errOut, "Alert: Close to the VAT threshold\n  Revenues are getting close") {
+		t.Errorf("summary stderr missing alerts: %q", errOut)
+	}
+
+	_, errOut, code = e.run(t, api, "alerts", "extra")
+	if code != 1 || !strings.Contains(errOut, `unexpected argument "extra"`) {
+		t.Errorf("extra argument: code %d, stderr %q", code, errOut)
+	}
+}
+
+func TestE2ERevenueQueue(t *testing.T) {
+	api := newMockAPI(t)
+	e := newEnv(t, "good-password")
+
+	out, errOut, code := e.run(t, api, "revenues", "queue")
+	if code != 0 || out != "incasare.pdf\t2 days\t\t(ID: 51)\tdoc_rq\n" {
+		t.Errorf("revenues queue: code %d, out %q, stderr %q", code, out, errOut)
+	}
+	out, _, code = e.run(t, api, "revenues", "rejected")
+	if code != 0 || out != "" {
+		t.Errorf("revenues rejected: code %d, out %q", code, out)
+	}
+
+	// Unknown subcommands fail before any sign in
+	_, errOut, code = e.run(t, api, "revenues", "bogus")
+	if code != 1 || !strings.Contains(errOut, `unknown revenues subcommand "bogus"`) {
+		t.Errorf("bogus subcommand: code %d, stderr %q", code, errOut)
+	}
+	if got := api.bridgeHits.Load(); got != 1 {
+		t.Errorf("SSO logins = %d, want 1", got)
 	}
 }
