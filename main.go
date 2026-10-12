@@ -89,7 +89,7 @@ Commands:
   queue           List expense queue (alias: q). Subcommands: delete <id>
   efactura        List e-Factura documents (aliases: einvoice, ei)
   company         Show company profile
-  upload <file>   Upload expense document (alias: up)
+  upload <file>   Upload expense document (alias: up), --revenue (-r) for a revenue document
   setup-skills    Install AI skills for Claude Code and other agents
   tui             Start interactive TUI (default when no command)
   demo            Start TUI with demo data (for screenshots)
@@ -108,6 +108,7 @@ Examples:
   solo-cli summary 2025             # Show 2025 summary
   solo-cli upload invoice.pdf       # Upload expense document
   solo-cli queue delete 123         # Delete queued item
+  solo-cli upload -r invoice.pdf    # Upload revenue document
   solo-cli -c ~/my-config.json rev  # Use custom config
   solo-cli expenses | grep -i "food"
 

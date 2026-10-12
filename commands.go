@@ -210,13 +210,22 @@ func printThresholdHint(t taxes.ThresholdResult) {
 }
 
 func runUpload(c *client.Client, args []string) {
-	if len(args) < 1 {
+	category, kind := client.UploadExpenses, "expense"
+	var files []string
+	for _, a := range args {
+		if a == "--revenue" || a == "-r" {
+			category, kind = client.UploadRevenues, "revenue"
+			continue
+		}
+		files = append(files, a)
+	}
+	if len(files) < 1 {
 		fmt.Fprintln(os.Stderr, "Error: no file specified")
-		fmt.Fprintln(os.Stderr, "Usage: solo-cli upload <file>")
+		fmt.Fprintln(os.Stderr, "Usage: solo-cli upload [--revenue] <file>")
 		os.Exit(1)
 	}
 
-	filePath := args[0]
+	filePath := files[0]
 
 	// Check if file exists
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
@@ -226,12 +235,12 @@ func runUpload(c *client.Client, args []string) {
 
 	fmt.Fprintf(os.Stderr, "Uploading %s...\n", filePath)
 
-	filename, err := c.UploadDocument(filePath, client.UploadExpenses)
+	filename, err := c.UploadDocument(filePath, category)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
 
 	fmt.Printf("Uploaded: %s\n", filename)
-	fmt.Println("Document added to expense queue for processing.")
+	fmt.Printf("Document added to %s queue for processing.\n", kind)
 }

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -185,5 +187,21 @@ func TestCLIRevenueDocuments(t *testing.T) {
 	_, errOut, code = e.run(t, api, "revenues", "bogus")
 	if code != 1 || !strings.Contains(errOut, "unknown revenues subcommand") {
 		t.Errorf("bogus subcommand: %d %q", code, errOut)
+	}
+}
+
+func TestCLIUploadRevenue(t *testing.T) {
+	api, m := newRevenueMock(t)
+	e := newEnv(t, "good-password")
+
+	file := filepath.Join(t.TempDir(), "factura.pdf")
+	os.WriteFile(file, []byte("%PDF-1.4 fake"), 0644)
+
+	out, errOut, code := e.run(t, api, "upload", "--revenue", file)
+	if code != 0 || !strings.Contains(out, "added to revenue queue") {
+		t.Fatalf("upload -r: %d %q %q", code, out, errOut)
+	}
+	if m.count("POST /api/financial-documents/save/revenues/") != 1 {
+		t.Errorf("revenue save not called: %v", m.hits)
 	}
 }
