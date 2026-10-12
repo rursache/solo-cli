@@ -13,9 +13,29 @@ import (
 	"github.com/google/uuid"
 )
 
-// UploadDocument uploads a file to SOLO.ro and confirms it as an expense
-// Returns the document filename on success
-func (c *Client) UploadDocument(filePath string) (string, error) {
+// UploadCategory is where an uploaded document lands for the accountant
+type UploadCategory string
+
+const (
+	UploadExpenses UploadCategory = "expenses"
+	UploadRevenues UploadCategory = "revenues"
+)
+
+// referer is the page the web uploader lives on for the save step
+func (u UploadCategory) referer() string {
+	if u == UploadRevenues {
+		return "/revenues"
+	}
+	return "/"
+}
+
+// UploadDocument uploads a file to SOLO.ro and saves it as an expense or
+// revenue document. Returns the server filename on success
+func (c *Client) UploadDocument(filePath string, category UploadCategory) (string, error) {
+	if category != UploadExpenses && category != UploadRevenues {
+		return "", fmt.Errorf("unknown upload category %q", category)
+	}
+
 	// Generate unique ID for this upload
 	uploadID := uuid.New().String()
 	uploadID = fmt.Sprintf("%s%s%s%s%s",
@@ -28,7 +48,7 @@ func (c *Client) UploadDocument(filePath string) (string, error) {
 	}
 
 	// Step 2: Confirm the upload
-	if err := c.confirmUpload(uploadID); err != nil {
+	if err := c.confirmUpload(uploadID, category); err != nil {
 		return "", fmt.Errorf("confirm failed: %w", err)
 	}
 
@@ -104,8 +124,18 @@ func (c *Client) uploadFile(uploadID, filePath string) (string, error) {
 	return cleanString(result), nil
 }
 
-// confirmUpload confirms the uploaded document as an expense
-func (c *Client) confirmUpload(uploadID string) error {
-	path := fmt.Sprintf("/api/financial-documents/save/expenses/%s", uploadID)
-	return c.doJSON("POST", path, "/", struct{}{}, nil)
+// confirmUpload saves the staged upload. The web reads the answer as the
+// number of saved documents and treats <= 0 as a failure, older answers
+// ({} or an empty body) count as success
+func (c *Client) confirmUpload(uploadID string, category UploadCategory) error {
+	path := fmt.Sprintf("/api/financial-documents/save/%s/%s", category, uploadID)
+	body, err := c.doRaw("POST", path, category.referer(), struct{}{})
+	if err != nil {
+		return err
+	}
+	var saved int
+	if json.Unmarshal(body, &saved) == nil && saved <= 0 {
+		return fmt.Errorf("SOLO.ro saved no documents")
+	}
+	return nil
 }

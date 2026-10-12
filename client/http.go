@@ -27,18 +27,36 @@ func newListRequest(startIndex, maxResults int, search string) listRequest {
 // doJSON performs an API request with the browser-mimicking headers SOLO.ro
 // expects and decodes the JSON response into out. reqBody and out may be nil
 func (c *Client) doJSON(method, path, referer string, reqBody, out any) error {
+	body, err := c.doRaw(method, path, referer, reqBody)
+	if err != nil {
+		return err
+	}
+	if out != nil {
+		if err := json.Unmarshal(body, out); err != nil {
+			return err
+		}
+		// Single choke point: API strings end up in terminal output, so
+		// strip control characters (escape injection) from every response
+		scrubValue(reflect.ValueOf(out))
+	}
+	return nil
+}
+
+// doRaw is doJSON without decoding, for bare scalar or empty answers. The
+// body is returned unsanitized, pass strings through cleanString
+func (c *Client) doRaw(method, path, referer string, reqBody any) ([]byte, error) {
 	var bodyReader io.Reader
 	if reqBody != nil {
 		data, err := json.Marshal(reqBody)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		bodyReader = bytes.NewReader(data)
 	}
 
 	req, err := http.NewRequest(method, baseURL+path, bodyReader)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	req.Header.Set("Accept", "application/json, text/plain, */*")
@@ -53,28 +71,19 @@ func (c *Client) doJSON(method, path, referer string, reqBody, out any) error {
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("status %d: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("status %d: %s", resp.StatusCode, cleanString(string(body)))
 	}
-
-	if out != nil {
-		if err := json.Unmarshal(body, out); err != nil {
-			return err
-		}
-		// Single choke point: API strings end up in terminal output, so
-		// strip control characters (escape injection) from every response
-		scrubValue(reflect.ValueOf(out))
-	}
-	return nil
+	return body, nil
 }
 
 // cleanString drops terminal control characters from a server-supplied

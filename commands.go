@@ -220,7 +220,7 @@ func runUpload(c *client.Client, args []string) {
 
 	fmt.Fprintf(os.Stderr, "Uploading %s...\n", filePath)
 
-	filename, err := c.UploadDocument(filePath)
+	filename, err := c.UploadDocument(filePath, client.UploadExpenses)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)

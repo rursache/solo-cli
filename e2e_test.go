@@ -132,7 +132,7 @@ func newMockAPI(t *testing.T) *mockAPI {
 	})
 	mux.HandleFunc("/api/financial-documents/save/expenses/", func(w http.ResponseWriter, r *http.Request) {
 		m.uploadHits.Add(1)
-		fmt.Fprint(w, `{}`)
+		fmt.Fprint(w, `1`)
 	})
 
 	m.server = httptest.NewServer(mux)

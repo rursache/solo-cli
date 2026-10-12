@@ -230,3 +230,5 @@ Each threshold entry has `min_salaries`, `max_salaries`, `base_salaries`, and `l
 - CLI output is tab-separated for piping. Status/progress messages go to stderr; data goes to stdout.
 - The TUI uses the Elm architecture pattern (Model, Init, Update, View) via Bubble Tea.
 - Error handling follows Go conventions: return errors up the call stack, handle at the top level in `main.go`.
+- Shared client plumbing: `doJSON` (decode + sanitize), `doRaw` (bare scalar or empty answers), `doOk` with `OkResponse[T]`/`APIError` for the `{Ok, Data, ErrorCode, ErrorMessage}` envelope, `StatusResponse` for `{Status}` answers, `download` + `DownloadedFile` + `FileExtension` for file endpoints (`client/envelope.go`, `client/download.go`)
+- Shared CLI plumbing (`cliutil.go`): `parseCmdFlags` (`--yes/-y`, `--force/-f`, `-o/--output`), `confirm` (TTY `[y/N]` prompt or `--yes`, required for destructive or outward-facing commands), `saveDownload`/`writeDownload` (never overwrite without `--force`, print the written path on stdout), `exitErr`

@@ -298,37 +298,65 @@ func TestDiscoverCompanyIDNotFound(t *testing.T) {
 }
 
 func TestUploadDocument(t *testing.T) {
-	var uploadedID, confirmedID string
-	c := newTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch {
-		case len(r.URL.Path) > len("/api/local-storage/upload/") && r.URL.Path[:26] == "/api/local-storage/upload/":
-			uploadedID = r.URL.Path[26:]
-			if err := r.ParseMultipartForm(1 << 20); err != nil {
-				t.Errorf("not multipart: %v", err)
+	for _, tc := range []struct {
+		category UploadCategory
+		referer  string
+		answer   string
+		wantErr  bool
+	}{
+		{UploadExpenses, "/", "1", false},
+		{UploadExpenses, "/", "{}", false},
+		{UploadExpenses, "/", "", false},
+		{UploadRevenues, "/revenues", "2", false},
+		{UploadRevenues, "/revenues", "0", true},
+	} {
+		var uploadedID, confirmedID, confirmReferer string
+		c := newTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch {
+			case strings.HasPrefix(r.URL.Path, "/api/local-storage/upload/"):
+				uploadedID = filepath.Base(r.URL.Path)
+				if err := r.ParseMultipartForm(1 << 20); err != nil {
+					t.Errorf("not multipart: %v", err)
+				}
+				json.NewEncoder(w).Encode("receipt.pdf")
+			case strings.HasPrefix(r.URL.Path, "/api/financial-documents/save/"+string(tc.category)+"/"):
+				confirmedID = filepath.Base(r.URL.Path)
+				confirmReferer = r.Header.Get("Referer")
+				w.Write([]byte(tc.answer))
+			default:
+				t.Errorf("unexpected path: %s", r.URL.Path)
 			}
-			json.NewEncoder(w).Encode("receipt.pdf")
-		case len(r.URL.Path) > 38 && r.URL.Path[:38] == "/api/financial-documents/save/expenses":
-			confirmedID = filepath.Base(r.URL.Path)
-			w.Write([]byte("{}"))
-		default:
-			t.Errorf("unexpected path: %s", r.URL.Path)
+		}))
+
+		tmpFile := filepath.Join(t.TempDir(), "receipt.pdf")
+		if err := os.WriteFile(tmpFile, []byte("%PDF-1.4 fake"), 0644); err != nil {
+			t.Fatal(err)
 		}
-	}))
 
-	tmpFile := filepath.Join(t.TempDir(), "receipt.pdf")
-	if err := os.WriteFile(tmpFile, []byte("%PDF-1.4 fake"), 0644); err != nil {
-		t.Fatal(err)
+		name, err := c.UploadDocument(tmpFile, tc.category)
+		if tc.wantErr {
+			if err == nil {
+				t.Errorf("%s answer %q: want error", tc.category, tc.answer)
+			}
+			continue
+		}
+		if err != nil {
+			t.Fatalf("%s answer %q: %v", tc.category, tc.answer, err)
+		}
+		if name != "receipt.pdf" {
+			t.Errorf("filename = %q", name)
+		}
+		if uploadedID == "" || uploadedID != confirmedID {
+			t.Errorf("upload/confirm ID mismatch: %q vs %q", uploadedID, confirmedID)
+		}
+		if confirmReferer != baseURL+tc.referer {
+			t.Errorf("%s save referer = %q, want %q", tc.category, confirmReferer, baseURL+tc.referer)
+		}
 	}
 
-	name, err := c.UploadDocument(tmpFile)
-	if err != nil {
-		t.Fatalf("UploadDocument: %v", err)
-	}
-	if name != "receipt.pdf" {
-		t.Errorf("filename = %q", name)
-	}
-	if uploadedID == "" || uploadedID != confirmedID {
-		t.Errorf("upload/confirm ID mismatch: %q vs %q", uploadedID, confirmedID)
+	c := newTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	if _, err := c.UploadDocument("x.pdf", "documents"); err == nil {
+		t.Error("unknown category must be rejected before any request")
 	}
 }
 
