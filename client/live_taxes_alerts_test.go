@@ -11,8 +11,9 @@ import (
 	"time"
 )
 
-// Read-only live checks for the tax estimate endpoint. It sends its nullable keys
-// with null rather than omitting them, so every mapped key is required
+// Read-only live checks for the tax estimate and Declaratia Unica dashboard
+// endpoints. Both send their nullable keys with null rather than omitting
+// them, so every mapped key is required
 
 // requireAllKeys checks that every json-tagged field of typ is a key of raw
 // and returns the decoded object for nested checks
@@ -62,5 +63,40 @@ func TestLiveTaxEstimate(t *testing.T) {
 	}
 	if e.TotalTaxes != nil && e.Total() < 0 {
 		t.Errorf("negative total")
+	}
+}
+
+func TestLiveTaxDeclarationDashboard(t *testing.T) {
+	c := liveClient(t)
+	// Last year is usually filed, the current one never is
+	for _, year := range []int{time.Now().Year() - 1, time.Now().Year()} {
+		path := fmt.Sprintf("/proxy/accounting/tax-declaration/tax-dashboard/%d", year)
+		obj := requireAllKeys(t, fetchRaw(t, c, path, "/tax-declaration/dashboard"), reflect.TypeOf(TaxDeclarationDashboard{}), "TaxDeclarationDashboard")
+		if raw := obj["TaxesSummary"]; string(raw) != "null" {
+			summary := requireAllKeys(t, raw, reflect.TypeOf(DeclarationTaxesSummary{}), "TaxesSummary")
+			if cr := summary["CompanyRevenue"]; len(cr) > 0 && string(cr) != "null" {
+				requireAllKeys(t, cr, reflect.TypeOf(DeclarationCompanyRevenue{}), "TaxesSummary.CompanyRevenue")
+			}
+			var items []json.RawMessage
+			json.Unmarshal(summary["RevenueTaxes"], &items)
+			for _, item := range items {
+				requireAllKeys(t, item, reflect.TypeOf(DeclarationRevenueTax{}), "TaxesSummary.RevenueTaxes[]")
+			}
+		}
+
+		d, err := c.GetTaxDeclarationDashboard(year)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if d.FiscalYear != year || d.FilingYear() != year+1 {
+			t.Errorf("%d: years %d/%d", year, d.FiscalYear, d.FilingYear())
+		}
+		if !d.DeclarationStatus.Known() {
+			t.Errorf("%d: undocumented DeclarationStatus %q", year, d.DeclarationStatus)
+		}
+		if d.DeclarationStatus == DeclarationNone && d.HasTaxes() {
+			t.Errorf("%d: unfiled year with taxes", year)
+		}
+		t.Logf("%d: %s", year, d.DeclarationStatus)
 	}
 }

@@ -60,6 +60,8 @@ func main() {
 		withClient(runCompany)
 	case "taxes", "tax":
 		withClientArgs(runTaxes, cmdArgs)
+	case "declaration", "du":
+		withClientArgs(runDeclaration, cmdArgs)
 	case "upload", "up":
 		withClientArgs(runUpload, cmdArgs)
 	case "setup-skills":
@@ -85,6 +87,7 @@ Usage:
 Commands:
   summary [year]  Show account summary (year, revenues, expenses, taxes)
   taxes [year]    Show tax breakdown with thresholds (alias: tax)
+  declaration     Show Declaratia Unica status for [year], default last year (alias: du)
   revenues        List revenue invoices, the last column is the invoice code (aliases: revenue, rev)
                   Subcommands: queue, rejected, delete <id>
   invoice <code>  Show an invoice with its lines (alias: inv). Subcommands:
