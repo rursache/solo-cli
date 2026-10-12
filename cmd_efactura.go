@@ -43,7 +43,7 @@ func runEFacturaCmd(args []string) {
 		if len(flags.Args) > 1 {
 			exitErr(fmt.Errorf("unexpected argument %q\n%s", flags.Args[1], efacturaUsage))
 		}
-		withClient(runEFactura)
+		withPagedClient(runEFactura)
 	case "status", "send", "expedite":
 		if len(flags.Args) != 2 {
 			exitErr(fmt.Errorf("efactura %s needs one invoice code\n%s", sub, efacturaUsage))

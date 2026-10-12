@@ -39,15 +39,10 @@ func runSummary(c *client.Client, args []string) {
 	printSummaryAlerts(c)
 }
 
-func runRevenues(c *client.Client) {
-	warnRejectedRevenues(c)
+func runRevenues(c *client.Client, pageSize int) {
+	warnRejectedRevenues(c, pageSize)
 
-	revenues, err := c.ListRevenues(0, 100, "")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
-	for _, r := range revenues.Items {
+	for _, r := range listed(c.ListAllRevenues(pageSize, "")) {
 		paid := "UNPAID"
 		if r.IsPaid {
 			paid = "PAID"
@@ -56,23 +51,18 @@ func runRevenues(c *client.Client) {
 	}
 }
 
-func runExpenses(c *client.Client) {
+func runExpenses(c *client.Client, pageSize int) {
 	// Check for rejected expenses first
-	rejected, err := c.ListRejectedExpenses(0, 100)
-	if err == nil && len(rejected.Items) > 0 {
-		fmt.Fprintf(os.Stderr, "⚠️  %d rejected expense(s):\n", len(rejected.Items))
-		for _, r := range rejected.Items {
+	rejected, err := c.ListAllRejectedExpenses(pageSize)
+	if lookupErr(err) == nil && len(rejected) > 0 {
+		fmt.Fprintf(os.Stderr, "⚠️  %d rejected expense(s):\n", len(rejected))
+		for _, r := range rejected {
 			fmt.Fprintf(os.Stderr, "   • %s - %s%s\n", r.DocumentName, r.Reason, docCodeSuffix(r.DocumentCode))
 		}
 		fmt.Fprintln(os.Stderr)
 	}
 
-	expenses, err := c.ListExpenses(0, 100, "")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
-	for _, e := range expenses.Items {
+	for _, e := range listed(c.ListAllExpenses(pageSize, "")) {
 		fmt.Printf("%.2f %s\t%s\t%s%s\n", e.Total, e.Currency.ShortName, e.Category, e.SupplierName, lastColumn(strOrEmpty(e.DocumentCode)))
 	}
 }
@@ -82,7 +72,7 @@ const queueUsage = "Usage: solo-cli queue [delete <id> [-y]]"
 // runQueueCmd validates the queue subcommand before signing in
 func runQueueCmd(args []string) {
 	if len(args) == 0 {
-		withClient(runQueue)
+		withPagedClient(runQueue)
 		return
 	}
 	switch args[0] {
@@ -95,8 +85,8 @@ func runQueueCmd(args []string) {
 		if err != nil {
 			exitErr(err)
 		}
-		c, _ := setupClient()
-		if err := deleteExpenseDocument(c, id, flags.Yes); err != nil {
+		c, cfg := setupClient()
+		if err := deleteExpenseDocument(c, cfg.PageSize, id, flags.Yes); err != nil {
 			exitErr(err)
 		}
 	default:
@@ -104,13 +94,8 @@ func runQueueCmd(args []string) {
 	}
 }
 
-func runQueue(c *client.Client) {
-	queue, err := c.ListQueuedExpenses(0, 100, "")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
-	for _, q := range queue.Items {
+func runQueue(c *client.Client, pageSize int) {
+	for _, q := range listed(c.ListAllQueuedExpenses(pageSize, "")) {
 		overdue := ""
 		if q.IsOverdue {
 			overdue = "OVERDUE"
@@ -119,13 +104,8 @@ func runQueue(c *client.Client) {
 	}
 }
 
-func runEFactura(c *client.Client) {
-	efactura, err := c.ListEFactura(0, 100, "")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
-	for _, e := range efactura.Items {
+func runEFactura(c *client.Client, pageSize int) {
+	for _, e := range listed(c.ListAllEFactura(pageSize, "")) {
 		fmt.Printf("%s\t%.2f %s\t%s\t%s\n", e.SerialCode, e.TotalAmount, e.CurrencyCode, e.InvoiceDate, e.PartyName)
 	}
 }
@@ -262,8 +242,8 @@ func parseDocumentID(args []string, usage string) (int, error) {
 
 // deleteExpenseDocument deletes a queued or rejected expense document. Like
 // the revenue delete, it only accepts ids those two lists show
-func deleteExpenseDocument(c *client.Client, id int, yes bool) error {
-	name, err := findExpenseDocument(c, id)
+func deleteExpenseDocument(c *client.Client, pageSize, id int, yes bool) error {
+	name, err := findExpenseDocument(c, pageSize, id)
 	if err != nil {
 		return err
 	}
@@ -277,33 +257,23 @@ func deleteExpenseDocument(c *client.Client, id int, yes bool) error {
 	return nil
 }
 
-func findExpenseDocument(c *client.Client, id int) (string, error) {
-	for start := 0; ; start += docsPageSize {
-		page, err := c.ListQueuedExpenses(start, docsPageSize, "")
-		if err != nil {
-			return "", err
-		}
-		for _, q := range page.Items {
-			if q.Id == id {
-				return q.DocumentName, nil
-			}
-		}
-		if len(page.Items) < docsPageSize {
-			break
+func findExpenseDocument(c *client.Client, pageSize, id int) (string, error) {
+	queue, err := c.ListAllQueuedExpenses(pageSize, "")
+	if err := lookupErr(err); err != nil {
+		return "", err
+	}
+	for _, q := range queue {
+		if q.Id == id {
+			return q.DocumentName, nil
 		}
 	}
-	for start := 0; ; start += docsPageSize {
-		page, err := c.ListRejectedExpenses(start, docsPageSize)
-		if err != nil {
-			return "", err
-		}
-		for _, r := range page.Items {
-			if r.Id == id {
-				return r.DocumentName, nil
-			}
-		}
-		if len(page.Items) < docsPageSize {
-			break
+	rejected, err := c.ListAllRejectedExpenses(pageSize)
+	if err := lookupErr(err); err != nil {
+		return "", err
+	}
+	for _, r := range rejected {
+		if r.Id == id {
+			return r.DocumentName, nil
 		}
 	}
 	return "", fmt.Errorf("no queued or rejected expense document with ID %d, see solo-cli queue and the warnings of solo-cli expenses", id)

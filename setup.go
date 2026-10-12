@@ -199,6 +199,13 @@ func withClient(fn func(*client.Client)) {
 	fn(apiClient)
 }
 
+// withPagedClient handles auth and runs a list command with the configured
+// page_size
+func withPagedClient(fn func(*client.Client, int)) {
+	apiClient, cfg := setupClient()
+	fn(apiClient, cfg.PageSize)
+}
+
 // withClientArgs handles auth and runs a command with client and args
 func withClientArgs(fn func(*client.Client, []string), args []string) {
 	apiClient, _ := setupClient()

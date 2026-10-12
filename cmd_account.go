@@ -158,7 +158,7 @@ func downloadDocument(c *client.Client, code string, flags cmdFlags) {
 // runExpensesCmd keeps "expenses" as the list and adds "expenses download"
 func runExpensesCmd(args []string) {
 	if len(args) == 0 || (args[0] != "download" && args[0] != "dl") {
-		withClient(runExpenses)
+		withPagedClient(runExpenses)
 		return
 	}
 	flags, err := parseCmdFlags(args[1:])
@@ -372,10 +372,7 @@ func runClients(args []string) {
 	}
 	search := strings.Join(flags.Args, " ")
 	c, cfg := setupClient()
-	customers, err := c.ListAllCustomers(cfg.PageSize, search)
-	if err != nil {
-		exitErr(err)
-	}
+	customers := listed(c.ListAllCustomers(cfg.PageSize, search))
 	if len(customers) == 0 {
 		fmt.Fprintln(os.Stderr, "No clients found")
 		return

@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 )
@@ -47,6 +48,38 @@ type mockAPI struct {
 	ssoBroken  atomic.Bool
 	// alertsOn makes the VAT and procura alert endpoints report active alerts
 	alertsOn atomic.Bool
+
+	mu       sync.Mutex
+	listReqs map[string][]string
+}
+
+// servePage answers a list request with the StartIndex/MaxResults slice of
+// items. withTotal false answers TotalResults null like the queued, rejected
+// and customers lists do live
+func (m *mockAPI) servePage(w http.ResponseWriter, r *http.Request, withTotal bool, items ...string) {
+	var req struct{ StartIndex, MaxResults int }
+	json.NewDecoder(r.Body).Decode(&req)
+	m.mu.Lock()
+	m.listReqs[r.URL.Path] = append(m.listReqs[r.URL.Path], fmt.Sprintf("%d/%d", req.StartIndex, req.MaxResults))
+	m.mu.Unlock()
+	start, end := min(req.StartIndex, len(items)), len(items)
+	if req.MaxResults > 0 {
+		end = min(start+req.MaxResults, len(items))
+	}
+	total := "null"
+	if withTotal {
+		total = fmt.Sprint(len(items))
+	}
+	fmt.Fprintf(w, `{"Items":[%s],"TotalResults":%s}`, strings.Join(items[start:end], ","), total)
+}
+
+// takeListReqs returns and clears the "start/max" pairs a list path received
+func (m *mockAPI) takeListReqs(path string) string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	reqs := m.listReqs[path]
+	delete(m.listReqs, path)
+	return strings.Join(reqs, " ")
 }
 
 // Minimal cont.solo.ro pages, enough to drive the real SSO parser
@@ -69,7 +102,7 @@ const mockCompanyID = "0123456789abcdef0123456789abcdef"
 
 func newMockAPI(t *testing.T) *mockAPI {
 	t.Helper()
-	m := &mockAPI{}
+	m := &mockAPI{listReqs: map[string][]string{}}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/security/login", func(w http.ResponseWriter, r *http.Request) {
@@ -96,19 +129,18 @@ func newMockAPI(t *testing.T) *mockAPI {
 		fmt.Fprint(w, `{"Year":2026,"DisplayCurrency":"RON","TotalRevenues":50000,"TotalDeductibleExpenses":20000,"HasTaxes":true,"Taxes":6000}`)
 	})
 	mux.HandleFunc("/proxy/accounting/revenues/list", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, `{"Items":[
-			{"UniqueCode":"inv_001","SerialCode":"INV-001","ClientName":"ACME Corp","Total":1000.50,"IsPaid":true,"Currency":{"ShortName":"RON"}},
-			{"UniqueCode":"inv_002","SerialCode":"INV-002","ClientName":"Globex","Total":250.25,"IsPaid":false,"Currency":{"ShortName":"EUR"}}
-		]}`)
+		m.servePage(w, r, true,
+			`{"UniqueCode":"inv_001","SerialCode":"INV-001","ClientName":"ACME Corp","Total":1000.50,"IsPaid":true,"Currency":{"ShortName":"RON"}}`,
+			`{"UniqueCode":"inv_002","SerialCode":"INV-002","ClientName":"Globex","Total":250.25,"IsPaid":false,"Currency":{"ShortName":"EUR"}}`)
 	})
 	mux.HandleFunc("/proxy/accounting/expenses/list", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, `{"Items":[{"SupplierName":"Hosting SRL","Total":99.99,"Category":"Servicii","Currency":{"ShortName":"RON"}}]}`)
+		m.servePage(w, r, true, `{"SupplierName":"Hosting SRL","Total":99.99,"Category":"Servicii","Currency":{"ShortName":"RON"}}`)
 	})
 	mux.HandleFunc("/proxy/accounting/expenses/rejected", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, `{"Items":[{"Id":7,"DocumentName":"blurry.jpg","Reason":"unreadable"}]}`)
+		m.servePage(w, r, false, `{"Id":7,"DocumentName":"blurry.jpg","Reason":"unreadable"}`)
 	})
 	mux.HandleFunc("/proxy/accounting/expenses/queued", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, `{"Items":[{"Id":42,"DocumentName":"receipt.pdf","DaysPassed":3,"IsOverdue":true}]}`)
+		m.servePage(w, r, false, `{"Id":42,"DocumentName":"receipt.pdf","DaysPassed":3,"IsOverdue":true}`)
 	})
 	mux.HandleFunc("/proxy/accounting/expenses/42", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodDelete {
@@ -117,7 +149,7 @@ func newMockAPI(t *testing.T) *mockAPI {
 		fmt.Fprint(w, `{}`)
 	})
 	mux.HandleFunc("/proxy/accounting/e-invoice/list-expenses", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, `{"Items":[{"SerialCode":"EF-9","TotalAmount":500,"CurrencyCode":"RON","InvoiceDate":"2026-06-01","PartyName":"Telecom SA"}]}`)
+		m.servePage(w, r, true, `{"SerialCode":"EF-9","TotalAmount":500,"CurrencyCode":"RON","InvoiceDate":"2026-06-01","PartyName":"Telecom SA"}`)
 	})
 	mux.HandleFunc("/dashboard", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, `<script>var Principal = { CompanyCode: "company_%s" };</script>`, mockCompanyID)
@@ -164,10 +196,16 @@ func newMockAPI(t *testing.T) *mockAPI {
 		fmt.Fprintf(w, `{"Status":%q,"Template":"PFA_VIES","IsTransitioning":false,"RejectionReasonCode":null,"IsRejectionRecoverable":false}`, status)
 	})
 	mux.HandleFunc("/proxy/accounting/revenues/queued", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, `{"Items":[{"Id":51,"DocumentCode":"doc_rq","DocumentName":"incasare.pdf","DaysPassed":2,"IsOverdue":false}],"TotalResults":null}`)
+		m.servePage(w, r, false, `{"Id":51,"DocumentCode":"doc_rq","DocumentName":"incasare.pdf","DaysPassed":2,"IsOverdue":false}`)
 	})
 	mux.HandleFunc("/proxy/accounting/revenues/rejected", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, `{"Items":[],"TotalResults":null}`)
+		m.servePage(w, r, false)
+	})
+	mux.HandleFunc("/proxy/accounting/customers/list", func(w http.ResponseWriter, r *http.Request) {
+		m.servePage(w, r, false,
+			`{"CustomerId":1,"Name":"Alpha SRL","Code1":"RO100","Email":"alpha@example.com"}`,
+			`{"CustomerId":2,"Name":"Beta SRL","Code1":"RO200","Email":"beta@example.com"}`,
+			`{"CustomerId":3,"Name":"Gamma PFA","Code1":"300","Email":"gamma@example.com"}`)
 	})
 	mux.HandleFunc("/proxy/accounting/company/vies-profile/company_"+mockCompanyID, func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, `{"Data":{"Code3":null,"ViesProfileStatus":"NotRegistered","ViesWorkflowStatus":"None"},"Ok":true}`)
@@ -460,6 +498,55 @@ func TestE2EListCommands(t *testing.T) {
 	}
 	if !strings.Contains(out, "CAEN: 6201 - Software development (principal)") || !strings.Contains(out, "CAEN: 6202 - IT consultancy\n") {
 		t.Errorf("company output missing CAEN codes: %q", out)
+	}
+}
+
+func TestE2EListPaging(t *testing.T) {
+	api := newMockAPI(t)
+	e := newEnv(t, "good-password")
+	if err := os.WriteFile(e.configPath, []byte(`{"username":"user@example.com","password":"good-password","page_size":1}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	// TotalResults 2 keeps paging past the first page of one
+	out, errOut, code := e.run(t, api, "revenues")
+	wantRev := "INV-001\t1000.50 RON\tPAID\tACME Corp\tinv_001\nINV-002\t250.25 EUR\tUNPAID\tGlobex\tinv_002\n"
+	if code != 0 || out != wantRev {
+		t.Errorf("revenues: code %d, out %q, stderr %q", code, out, errOut)
+	}
+	if got := api.takeListReqs("/proxy/accounting/revenues/list"); got != "0/1 1/1" {
+		t.Errorf("revenues pages = %q, want 0/1 1/1", got)
+	}
+	// TotalResults null pages until a short or empty page
+	if got := api.takeListReqs("/proxy/accounting/revenues/rejected"); got != "0/1" {
+		t.Errorf("rejected revenues pages = %q, want 0/1", got)
+	}
+
+	out, _, code = e.run(t, api, "clients")
+	if code != 0 || strings.Count(out, "\n") != 3 || !strings.Contains(out, "3\tGamma PFA\t300") {
+		t.Errorf("clients: code %d, out %q", code, out)
+	}
+	if got := api.takeListReqs("/proxy/accounting/customers/list"); got != "0/1 1/1 2/1 3/1" {
+		t.Errorf("customers pages = %q", got)
+	}
+
+	out, errOut, code = e.run(t, api, "expenses")
+	if code != 0 || out != "99.99 RON\tServicii\tHosting SRL\n" || !strings.Contains(errOut, "1 rejected expense(s)") {
+		t.Errorf("expenses: code %d, out %q, stderr %q", code, out, errOut)
+	}
+	if got := api.takeListReqs("/proxy/accounting/expenses/list"); got != "0/1" {
+		t.Errorf("expenses pages = %q, want 0/1", got)
+	}
+	if got := api.takeListReqs("/proxy/accounting/expenses/rejected"); got != "0/1 1/1" {
+		t.Errorf("rejected expenses pages = %q, want 0/1 1/1", got)
+	}
+
+	out, _, code = e.run(t, api, "queue")
+	if code != 0 || out != "receipt.pdf\t3 days\tOVERDUE\t(ID: 42)\n" {
+		t.Errorf("queue: code %d, out %q", code, out)
+	}
+	if got := api.takeListReqs("/proxy/accounting/expenses/queued"); got != "0/1 1/1" {
+		t.Errorf("queue pages = %q, want 0/1 1/1", got)
 	}
 }
 

@@ -80,6 +80,27 @@ func exitErr(err error) {
 	os.Exit(1)
 }
 
+// listed unwraps a ListAll result for a list command, exiting on errors and
+// warning on stderr when paging stopped early
+func listed[T any](items []T, err error) []T {
+	if errors.Is(err, client.ErrListTruncated) {
+		fmt.Fprintf(os.Stderr, "Warning: %v, showing the first %d\n", err, len(items))
+		return items
+	}
+	if err != nil {
+		exitErr(err)
+	}
+	return items
+}
+
+// lookupErr drops ErrListTruncated so a lookup still searches what was fetched
+func lookupErr(err error) error {
+	if errors.Is(err, client.ErrListTruncated) {
+		return nil
+	}
+	return err
+}
+
 // safeFileName turns a server value (invoice serial, document name) into a
 // file name without path separators or control characters
 func safeFileName(name string) string {
