@@ -219,15 +219,15 @@ func (m Model) deleteSelectedExpense() tea.Cmd {
 
 	id := m.queue.Items[idx].Id
 
+	if m.demoMode {
+		// Demo mode has no client, the success handler removes it locally
+		return func() tea.Msg { return deleteSuccessMsg{id} }
+	}
+	c := m.client
 	return func() tea.Msg {
-		if m.demoMode {
-			// In demo mode, just return success
-			return deleteSuccessMsg{}
-		}
-		err := m.client.DeleteExpense(id)
-		if err != nil {
+		if err := c.DeleteExpense(id); err != nil {
 			return errMsg(err)
 		}
-		return deleteSuccessMsg{}
+		return deleteSuccessMsg{id}
 	}
 }

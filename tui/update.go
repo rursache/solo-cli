@@ -154,7 +154,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, m.fetchSummary
 			}
 		case "r":
-			// Refresh
+			// Demo data has no API to refresh from
+			if m.demoMode {
+				break
+			}
 			m.loading = true
 			m.listGen++
 			m.fetchingMore = false
@@ -290,6 +293,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.fetchingMore = false
 
 	case deleteSuccessMsg:
+		if m.demoMode {
+			m.removeQueued(msg.id)
+			m.loading = false
+			return m, nil
+		}
 		m.loading = true
 		// Refresh queue after deletion
 		return m, m.fetchQueue
@@ -410,6 +418,31 @@ func (m *Model) scrollDown() tea.Cmd {
 		}
 	}
 	return m.maybeFetchMore()
+}
+
+// removeQueued drops a deleted document from the loaded queue, keeping the
+// cursor and viewport inside the shorter list
+func (m *Model) removeQueued(id int) {
+	if m.queue == nil {
+		return
+	}
+	items := m.queue.Items[:0:0]
+	for _, q := range m.queue.Items {
+		if q.Id != id {
+			items = append(items, q)
+		}
+	}
+	if removed := len(m.queue.Items) - len(items); removed > 0 && m.queue.TotalResults != nil {
+		total := max(0, *m.queue.TotalResults-removed)
+		m.queue.TotalResults = &total
+	}
+	m.queue.Items = items
+	if m.cursor >= len(items) {
+		m.cursor = max(0, len(items)-1)
+	}
+	if m.viewportOffset > m.cursor {
+		m.viewportOffset = m.cursor
+	}
 }
 
 func (m *Model) checkLoadingDone() {

@@ -79,12 +79,12 @@ type Model struct {
 	searchQuery    string // Applied server-side filter for the active list tab
 	searchSeq      int    // Debounce sequence, only the latest tick applies
 	marqueeOffset  int    // Scroll position of the focused row's marquee
-	viewportOffset int // First visible item index
-	viewportSize   int // Number of visible items
-	taxesScroll    int  // Scroll offset for taxes tab
-	taxesLines     int  // Total line count of taxes content
-	fetchingMore   bool // A next-page fetch is in flight
-	listGen        int  // List generation, stale page fetches are dropped
+	viewportOffset int    // First visible item index
+	viewportSize   int    // Number of visible items
+	taxesScroll    int    // Scroll offset for taxes tab
+	taxesLines     int    // Total line count of taxes content
+	fetchingMore   bool   // A next-page fetch is in flight
+	listGen        int    // List generation, stale page fetches are dropped
 	demoMode       bool
 	debugMouse     bool   // SOLO_MOUSE_DEBUG=1, show raw mouse events
 	lastMouse      string // Last mouse event, for the debug overlay
@@ -102,7 +102,7 @@ type rejectedMsg *client.RejectedExpenseResponse
 type queueMsg *client.QueuedExpenseResponse
 type efacturaMsg *client.EFacturaListResponse
 type errMsg error
-type deleteSuccessMsg struct{}
+type deleteSuccessMsg struct{ id int }
 
 // Page messages append to the already loaded list instead of replacing it.
 // gen ties the page to the list generation it was fetched for, so a slow
@@ -175,10 +175,10 @@ func NewDemoModel() Model {
 		summary:   demoSummary,
 		company:   client.GetDemoCompany(),
 		caenCodes: client.GetDemoCAENCodes(),
-		revenues: client.GetDemoRevenues(),
-		expenses: client.GetDemoExpenses(),
-		rejected: client.GetDemoRejectedExpenses(),
-		queue:    client.GetDemoQueue(),
-		efactura: client.GetDemoEFactura(),
+		revenues:  client.GetDemoRevenues(),
+		expenses:  client.GetDemoExpenses(),
+		rejected:  client.GetDemoRejectedExpenses(),
+		queue:     client.GetDemoQueue(),
+		efactura:  client.GetDemoEFactura(),
 	}
 }

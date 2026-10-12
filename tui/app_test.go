@@ -885,3 +885,64 @@ func TestPadTruncate(t *testing.T) {
 		t.Errorf("diacritics width = %d, want 12 (%q)", lipgloss.Width(got), got)
 	}
 }
+
+// Demo mode has no client: r must not refetch and a queue delete must
+// remove the document locally instead of calling the API
+func TestDemoRefreshAndDeleteDoNotPanic(t *testing.T) {
+	m := NewDemoModel()
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	m = updated.(Model)
+
+	updated, cmd := m.Update(keyMsg("r"))
+	m = updated.(Model)
+	if cmd != nil {
+		t.Fatal("r in demo mode must be a no-op")
+	}
+	if m.loading {
+		t.Fatal("r in demo mode must not show the loading state")
+	}
+
+	m.activeTab = TabQueue
+	m.cursor = len(m.queue.Items) - 1
+	last := m.queue.Items[m.cursor]
+	before := len(m.queue.Items)
+
+	m = deleteQueued(t, m)
+	if len(m.queue.Items) != before-1 {
+		t.Fatalf("queue has %d items after delete, want %d", len(m.queue.Items), before-1)
+	}
+	for _, q := range m.queue.Items {
+		if q.Id == last.Id {
+			t.Fatalf("deleted document %d still in the queue", last.Id)
+		}
+	}
+	if *m.queue.TotalResults != before-1 {
+		t.Errorf("TotalResults = %d, want %d", *m.queue.TotalResults, before-1)
+	}
+	if m.cursor != len(m.queue.Items)-1 {
+		t.Errorf("cursor = %d, want clamped to %d", m.cursor, len(m.queue.Items)-1)
+	}
+	if m.loading {
+		t.Error("loading must clear after a demo delete")
+	}
+	if view := m.View(); strings.Contains(view, last.DocumentName) {
+		t.Error("deleted document still rendered")
+	}
+}
+
+// deleteQueued deletes the selected queue document and feeds the result
+// back into Update, like the Bubble Tea runtime would
+func deleteQueued(t *testing.T, m Model) Model {
+	t.Helper()
+	updated, cmd := m.Update(keyMsg("d"))
+	m = updated.(Model)
+	if cmd == nil {
+		t.Fatal("d on the queue must return the delete command")
+	}
+	updated, cmd = m.Update(cmd())
+	m = updated.(Model)
+	if cmd != nil {
+		t.Fatal("demo delete must not refetch the queue")
+	}
+	return m
+}
