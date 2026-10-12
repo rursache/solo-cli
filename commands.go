@@ -65,7 +65,7 @@ func runExpenses(c *client.Client) {
 	if err == nil && len(rejected.Items) > 0 {
 		fmt.Fprintf(os.Stderr, "⚠️  %d rejected expense(s):\n", len(rejected.Items))
 		for _, r := range rejected.Items {
-			fmt.Fprintf(os.Stderr, "   • %s - %s\n", r.DocumentName, r.Reason)
+			fmt.Fprintf(os.Stderr, "   • %s - %s%s\n", r.DocumentName, r.Reason, docCodeSuffix(r.DocumentCode))
 		}
 		fmt.Fprintln(os.Stderr)
 	}
@@ -76,7 +76,7 @@ func runExpenses(c *client.Client) {
 		os.Exit(1)
 	}
 	for _, e := range expenses.Items {
-		fmt.Printf("%.2f %s\t%s\t%s\n", e.Total, e.Currency.ShortName, e.Category, e.SupplierName)
+		fmt.Printf("%.2f %s\t%s\t%s%s\n", e.Total, e.Currency.ShortName, e.Category, e.SupplierName, lastColumn(strOrEmpty(e.DocumentCode)))
 	}
 }
 
@@ -116,7 +116,7 @@ func runQueue(c *client.Client, args []string) {
 		if q.IsOverdue {
 			overdue = "OVERDUE"
 		}
-		fmt.Printf("%s\t%d days\t%s\t(ID: %d)\n", q.DocumentName, q.DaysPassed, overdue, q.Id)
+		fmt.Printf("%s\t%d days\t%s\t(ID: %d)%s\n", q.DocumentName, q.DaysPassed, overdue, q.Id, lastColumn(q.DocumentCode))
 	}
 }
 

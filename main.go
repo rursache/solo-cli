@@ -51,7 +51,7 @@ func main() {
 	case "invoice", "inv":
 		runInvoice(cmdArgs)
 	case "expenses", "expense", "exp":
-		withClient(runExpenses)
+		runExpensesCmd(cmdArgs)
 	case "queue", "q":
 		withClientArgs(runQueue, cmdArgs)
 	case "efactura", "einvoice", "ei":
@@ -66,6 +66,8 @@ func main() {
 		withClientArgs(runDeclaration, cmdArgs)
 	case "upload", "up":
 		withClientArgs(runUpload, cmdArgs)
+	case "documents", "docs":
+		runDocuments(cmdArgs)
 	case "setup-skills":
 		runSetupSkills()
 	case "tui":
@@ -97,12 +99,16 @@ Commands:
                   paid <code> [YYYY-MM-DD], unpaid <code>, delete <code>,
                   download <code> [--xml | --original] [-o path] [-f]
   expenses        List expenses (aliases: expense, exp)
+  expenses download <code> [-o file] [-f]
+                  Download an expense document, the code is the last column of expenses
   queue           List expense queue (alias: q). Subcommands: delete <id>
   efactura        List received e-Factura documents (aliases: einvoice, ei). Subcommands:
                   status <invoice>, send <invoice>, expedite <invoice>, settings,
                   settings set [--delay 0|2] [--contact-info yes|no]. Connecting the SPV happens on the web
   company         Show company profile
   upload <file>   Upload expense document (alias: up), --revenue (-r) for a revenue document
+  documents       List filed tax declarations (alias: docs). Subcommands: pfa,
+                  download <code> [-o file] [-f]
   setup-skills    Install AI skills for Claude Code and other agents
   tui             Start interactive TUI (default when no command)
   demo            Start TUI with demo data (for screenshots)
