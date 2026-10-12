@@ -90,6 +90,7 @@ All API endpoints are under `https://falcon.solo.ro`:
 | `/proxy/accounting/company/basic-profile/company_{id}` | GET | Company profile |
 | `/proxy/accounting/company/caen-codes/company_{id}` | GET | CAEN codes |
 | `/proxy/accounting/company/vies-profile/company_{id}` | GET | VIES status (Ok envelope) |
+| `/proxy/accounting/company/update-settings` | POST | Invoice mentions, body `{"CompanyCode":"company_{id}","InvoiceMentions": text or null}`, Ok envelope, `CompanyNotFound` error code |
 | `/proxy/accounting/bank-accounts/company_{id}` | GET | Bank accounts |
 | `/proxy/accounting/reports/cashflow-report/company_{id}/{year}` | GET | Cash flow register PDF |
 | `/proxy/accounting/subscription/summary` | GET | Subscription, overdue payments, card |
@@ -99,6 +100,7 @@ All API endpoints are under `https://falcon.solo.ro`:
 | `/api/documents/tax-declarations` | GET | Filed tax declarations |
 | `/api/documents/registration-documents` | GET | Documente PFA sections |
 | `/api/documents/download/{code}` | GET | Declaration or PFA file (unknown codes answer an empty 200) |
+| `/api/documents/download-bulk/{documentTypeCode}` | GET | Archive of one Documente PFA section, Referer `/documents/company`, only used for sections with more than one file like the web |
 | `/api/financial-documents/download/{documentCode}` | GET | Original of an expense, revenue or external invoice document |
 | `/api/referral/campaign` | GET | Referral code and prizes |
 | `/api/referral/rewards` | GET | Earned and pending referral rewards |

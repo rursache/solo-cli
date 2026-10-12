@@ -87,3 +87,20 @@ func TestDocumentDownloads(t *testing.T) {
 		}
 	}
 }
+
+func TestDownloadRegistrationBulk(t *testing.T) {
+	c := newTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "GET" || r.URL.Path != "/api/documents/download-bulk/trade_register" || !strings.HasSuffix(r.Header.Get("Referer"), "/documents/company") {
+			t.Errorf("unexpected request: %s %s referer %s", r.Method, r.URL.Path, r.Header.Get("Referer"))
+		}
+		w.Header().Set("Content-Type", "application/zip")
+		w.Write([]byte("PK\x03\x04 archive"))
+	}))
+	f, err := c.DownloadRegistrationBulk("trade_register")
+	if err != nil || f.Extension() != "zip" {
+		t.Fatalf("bulk = %+v, %v", f, err)
+	}
+	if _, err := c.DownloadRegistrationBulk(" "); err == nil {
+		t.Error("an empty type code must fail before any request")
+	}
+}

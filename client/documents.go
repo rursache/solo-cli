@@ -91,6 +91,16 @@ func (c *Client) DownloadDocument(uniqueCode string) (*DownloadedFile, error) {
 	return c.downloadNamed("/api/documents/download/"+code, "/documents", "document")
 }
 
+// DownloadRegistrationBulk fetches every file of one Documente PFA section as
+// an archive. The web offers it only for sections with more than one file
+func (c *Client) DownloadRegistrationBulk(documentTypeCode string) (*DownloadedFile, error) {
+	code, err := pathCode(documentTypeCode)
+	if err != nil {
+		return nil, err
+	}
+	return c.downloadNamed("/api/documents/download-bulk/"+code, "/documents/company", "PFA documents")
+}
+
 // DownloadFinancialDocument fetches the original file of an expense, queued
 // or rejected document by its DocumentCode
 func (c *Client) DownloadFinancialDocument(documentCode string) (*DownloadedFile, error) {

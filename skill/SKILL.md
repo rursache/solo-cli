@@ -24,7 +24,7 @@ brew install rursache/tap/solo-cli
 - Accounts with two-factor authentication need one interactive run in a terminal to enter the code, the device is then remembered for 14 days. Without a terminal the CLI never triggers a code SMS, it stops with a message instead
 
 ## Mutating commands (ask the user first)
-These change data on SOLO.ro or at ANAF: `queue delete`, `revenues delete`, `invoice paid`, `invoice unpaid`, `invoice delete`, `efactura send`, `efactura expedite`, `efactura settings set` and `upload`
+These change data on SOLO.ro or at ANAF: `queue delete`, `revenues delete`, `invoice paid`, `invoice unpaid`, `invoice delete`, `efactura send`, `efactura expedite`, `efactura settings set`, `company mentions set`, `company mentions clear` and `upload`
 - All of them except `upload` ask `[y/N]` on a terminal and, without a terminal (agents, scripts), refuse unless `--yes` / `-y` is passed
 - Only add `-y` after the user explicitly confirmed that exact action on that exact item. Show the item first (`solo-cli invoice <code>`, `solo-cli efactura status <invoice>`, `solo-cli queue`)
 - `efactura send` submits the invoice to ANAF and cannot be undone. `invoice delete` permanently deletes the newest invoice, older ones are refused
@@ -185,7 +185,14 @@ Show company profile.
 ```bash
 solo-cli company
 ```
-Output: labeled fields -- Name, CUI, Reg (registration number), Address, CAEN codes, VIES status, one `Bank:` line per bank account
+Output: labeled fields -- Name, CUI, Reg (registration number), Address, Invoice mentions (when set), CAEN codes, VIES status, one `Bank:` line per bank account
+
+Invoice mentions, the text SOLO prints on every invoice:
+```bash
+solo-cli company mentions                  # Print the current text
+solo-cli company mentions set <text> -y    # Change it for every future invoice (mutating)
+solo-cli company mentions clear -y         # Remove it (mutating)
+```
 
 ### upload <file>
 Upload an expense document (PDF or image).
@@ -199,7 +206,8 @@ Output: uploaded filename and confirmation that the document was added to the ex
 Filed tax declarations and Documente PFA
 ```bash
 solo-cli documents                       # Declarations: type, period, filed date, code (alias: docs)
-solo-cli documents pfa                   # PFA files: section, code, file name, modified date
+solo-cli documents pfa                   # PFA files: section, code, file name, modified date, section type
+solo-cli documents pfa download <type>   # Save a whole section (archive when it has several files)
 solo-cli documents download <code>       # Save one (alias: dl), -o path, -f to overwrite
 ```
 

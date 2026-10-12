@@ -49,7 +49,9 @@ Expenses:
 
 Documents:
   documents             List filed tax declarations (alias: docs)
-  documents pfa         List the Documente PFA files
+  documents pfa         List the Documente PFA files, last column is the section type
+  documents pfa download <type> [-o path] [-f]
+                        Save every file of a Documente PFA section (alias: dl)
   documents download <code> [-o path] [-f]
                         Save a declaration or PFA document (alias: dl)
   report [year] [-o path] [-f]
@@ -57,6 +59,9 @@ Documents:
 
 Account:
   company               Company profile, VIES status and bank accounts
+  company mentions      Text printed on every invoice
+  company mentions set <text> [-y]
+                        Change the invoice mentions, company mentions clear [-y] removes them
   subscription          SOLO.ro subscription, changes stay on the web
   referral              Referral link, prizes and rewards
   clients [text]        List clients, optionally filtered by a search text (alias: customers)
@@ -105,7 +110,7 @@ Examples:
 
 ### Safety of mutating commands
 
-These commands change data on SOLO.ro or at ANAF: `queue delete`, `revenues delete`, `invoice paid`, `invoice unpaid`, `invoice delete`, `efactura send`, `efactura expedite`, `efactura settings set` and `upload`
+These commands change data on SOLO.ro or at ANAF: `queue delete`, `revenues delete`, `invoice paid`, `invoice unpaid`, `invoice delete`, `efactura send`, `efactura expedite`, `efactura settings set`, `company mentions set`, `company mentions clear` and `upload`
 
 - Every one except `upload` confirms first: on a terminal it asks `[y/N]` on stderr, without a terminal it refuses with `... needs confirmation, pass --yes (-y) to run it without a terminal` unless `--yes` / `-y` is given
 - Only pass `-y` after the user explicitly asked for that exact action. Prefer showing the item first (`invoice <code>`, `efactura status <invoice>`, `queue`) and confirming with the user
@@ -340,11 +345,13 @@ Accepts PDF files and images. Uploads in two steps (multipart upload then confir
 ```bash
 solo-cli documents                  # Filed tax declarations (alias: docs, also documents list)
 solo-cli documents pfa              # Documente PFA files
+solo-cli documents pfa download <type>  # Save a whole Documente PFA section
 solo-cli documents download <code>  # Save a declaration or PFA document (alias: dl)
 ```
 
 - `documents` columns: declaration type, reporting period, filed date (YYYY-MM-DD), document code
-- `documents pfa` columns: section title, document code, original file name, modified date
+- `documents pfa` columns: section title, document code, original file name, modified date, section type
+- `documents pfa download <type>` takes the section type from that last column. A section with several files is saved as the archive SOLO.ro builds (`<section title>.zip`), a single file as itself
 - `documents download` names the file after the original file name from those lists, falling back to the type and period or the code
 
 ### report command
@@ -358,7 +365,14 @@ Saves the registrul de incasari si plati PDF as `Registru-incasari-plati-YYYY.pd
 
 ### company command
 
-Labeled fields: Name, CUI, Reg (registration number), Address, one `CAEN:` line per code (the principal one marked), `VIES status:`, `VIES code:` and `VIES request:` when set, then one `Bank: <bank> - <IBAN> (<currency>)` line per bank account. VIES and bank account failures only warn on stderr
+```bash
+solo-cli company                           # Profile
+solo-cli company mentions                  # Invoice mentions text
+solo-cli company mentions set <text> -y    # Change the invoice mentions
+solo-cli company mentions clear -y         # Remove them
+```
+
+Labeled fields: Name, CUI, Reg (registration number), Address, `Invoice mentions:` when set, one `CAEN:` line per code (the principal one marked), `VIES status:`, `VIES code:` and `VIES request:` when set, then one `Bank: <bank> - <IBAN> (<currency>)` line per bank account. VIES and bank account failures only warn on stderr. `company mentions set` and `clear` change the text printed on every future invoice, confirm first, skip the update when nothing changes and print `Invoice mentions updated` or `Invoice mentions cleared`
 
 ### subscription command
 

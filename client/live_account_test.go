@@ -197,3 +197,26 @@ func TestLiveExchangeRates(t *testing.T) {
 		}
 	}
 }
+
+func TestLiveRegistrationBulk(t *testing.T) {
+	c := liveClient(t)
+
+	sections, err := c.ListRegistrationDocuments()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range sections {
+		if len(s.Documents) < 2 {
+			continue
+		}
+		f, err := c.DownloadRegistrationBulk(s.DocumentTypeCode)
+		if err != nil {
+			t.Fatalf("%s: %v", s.DocumentTypeCode, err)
+		}
+		if ext := f.Extension(); ext != "zip" {
+			t.Errorf("%s: bulk download is %q (%s), want a zip", s.DocumentTypeCode, ext, f.ContentType)
+		}
+		return
+	}
+	t.Skip("no Documente PFA section with several files")
+}

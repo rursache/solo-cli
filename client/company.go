@@ -1,6 +1,9 @@
 package client
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
 
 // CompanyInfo represents the company profile
 type CompanyInfo struct {
@@ -68,4 +71,26 @@ func (c *Client) GetCompanyInfo(companyID string) (*CompanyInfo, error) {
 	}
 
 	return result.Data, nil
+}
+
+// UpdateInvoiceMentions saves the text SOLO prints on every invoice, the only
+// editable field of the company form. nil clears it, the web always sends
+// the key and uses null for an emptied field
+func (c *Client) UpdateInvoiceMentions(companyID string, mentions *string) error {
+	if companyID == "" {
+		return fmt.Errorf("company ID not available")
+	}
+	body := struct {
+		CompanyCode     string  `json:"CompanyCode"`
+		InvoiceMentions *string `json:"InvoiceMentions"`
+	}{"company_" + companyID, mentions}
+	err := c.doOk("POST", "/proxy/accounting/company/update-settings", "/settings", body, nil)
+	var apiErr *APIError
+	switch {
+	case errors.As(err, &apiErr) && apiErr.Code == "CompanyNotFound":
+		return fmt.Errorf("failed to update invoice mentions: SOLO.ro could not identify the company")
+	case err != nil:
+		return fmt.Errorf("failed to update invoice mentions: %w", err)
+	}
+	return nil
 }

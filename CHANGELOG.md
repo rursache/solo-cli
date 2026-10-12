@@ -7,12 +7,13 @@
 - **SOLO estimate in taxes**: `solo-cli taxes` now ends with SOLO.ro's own CAS, CASS and income tax estimate for the same year and flags any line that differs from the local calculator by 1 RON or more
 - **Declaratia Unica**: `solo-cli declaration [year]` (alias `du`) shows the D212 filing status, the taxes SOLO computed and the 25 May deadline with the days left
 - **Alerts**: `solo-cli alerts` lists the active dashboard alerts (VAT threshold, CAEN code update, notarial power of attorney) and `summary` prints them on stderr after its data
-- **Documents**: `solo-cli documents` lists filed tax declarations, `documents pfa` the Documente PFA files and `documents download <code>` saves one
+- **Documents**: `solo-cli documents` lists filed tax declarations, `documents pfa` the Documente PFA files (last column is the section type) and `documents download <code>` saves one. `documents pfa download <type>` saves a whole section, as the archive SOLO.ro builds when it has several files
 - **Rejected expense documents**: `expenses rejected` lists them with the ID that `queue delete` takes
 - **Downloads of originals**: `expenses download <code>` saves the original of an expense, queued or rejected document
 - **Cash flow register**: `solo-cli report [year]` saves the registrul de incasari si plati PDF
 - **Account commands**: `solo-cli subscription` (plan, status, price, next billing, card), `solo-cli referral` (link, prizes, rewards), `solo-cli clients [search]` (clients directory) and `solo-cli rates [YYYY-MM-DD]` (BNR exchange rates)
-- **Company details**: `solo-cli company` also shows the VIES status and every bank account
+- **Company details**: `solo-cli company` also shows the invoice mentions, the VIES status and every bank account
+- **Invoice mentions**: `company mentions` prints the text SOLO.ro adds to every invoice, `company mentions set <text>` changes it and `company mentions clear` removes it
 - **Shared flags**: commands that change data ask `[y/N]` on a terminal and need `--yes` (`-y`) in scripts. Downloads save to the current directory, `-o` picks a file or directory and an existing file is only overwritten with `--force` (`-f`). The written path is printed on stdout
 - **TUI Dashboard notices**: a panel next to the summary box shows the Declaratia Unica status for last year with its 25 May deadline and the active VAT, CAEN and power of attorney alerts. It is hidden when SOLO.ro does not answer
 - **TUI SOLO estimate**: the Taxes tab ends with SOLO.ro's own CAS, CASS, income tax and total for the displayed year, refetched with `[` and `]`, and flags lines that differ from the local breakdown

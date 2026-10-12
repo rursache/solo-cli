@@ -48,7 +48,7 @@ func rejectedRef(id int, code string) string {
 	return fmt.Sprintf(" (ID: %d, document %s)", id, code)
 }
 
-const documentsUsage = "Usage: solo-cli documents [pfa | download <code> [-o path] [-f]]"
+const documentsUsage = "Usage: solo-cli documents [pfa [download <type> [-o path] [-f]] | download <code> [-o path] [-f]]"
 
 func runDocuments(args []string) {
 	flags, err := parseCmdFlags(args)
@@ -67,11 +67,19 @@ func runDocuments(args []string) {
 		c, _ := setupClient()
 		listTaxDeclarations(c)
 	case "pfa":
-		if len(flags.Args) > 1 {
-			exitErr(fmt.Errorf("unexpected argument %q\n%s", flags.Args[1], documentsUsage))
+		rest := flags.Args[1:]
+		switch {
+		case len(rest) == 0:
+			c, _ := setupClient()
+			listRegistrationDocuments(c)
+		case rest[0] != "download" && rest[0] != "dl":
+			exitErr(fmt.Errorf("unexpected argument %q\n%s", rest[0], documentsUsage))
+		case len(rest) != 2:
+			exitErr(fmt.Errorf("documents pfa download needs one section type, the last column of documents pfa\n%s", documentsUsage))
+		default:
+			c, _ := setupClient()
+			downloadRegistrationSection(c, rest[1], flags)
 		}
-		c, _ := setupClient()
-		listRegistrationDocuments(c)
 	case "download", "dl":
 		if len(flags.Args) != 2 {
 			exitErr(fmt.Errorf("missing document code\n%s", documentsUsage))
@@ -106,12 +114,52 @@ func listRegistrationDocuments(c *client.Client) {
 	for _, s := range sections {
 		for _, d := range s.Documents {
 			found = true
-			fmt.Printf("%s\t%s\t%s\t%s\n", s.Title(), d.UniqueCode, d.OriginalFileName, dateOnly(d.ModifiedOn))
+			fmt.Printf("%s\t%s\t%s\t%s\t%s\n", s.Title(), d.UniqueCode, d.OriginalFileName, dateOnly(d.ModifiedOn), s.DocumentTypeCode)
 		}
 	}
 	if !found {
 		fmt.Fprintln(os.Stderr, "No PFA documents")
 	}
+}
+
+// downloadRegistrationSection saves the files of one Documente PFA section:
+// the archive when it has several, like the web offers, else the single file
+func downloadRegistrationSection(c *client.Client, typeCode string, flags cmdFlags) {
+	sections, err := c.ListRegistrationDocuments()
+	if err != nil {
+		exitErr(err)
+	}
+	for _, s := range sections {
+		if s.DocumentTypeCode != typeCode {
+			continue
+		}
+		var f *client.DownloadedFile
+		var name string
+		switch len(s.Documents) {
+		case 0:
+			exitErr(fmt.Errorf("the %s section has no files", s.Title()))
+		case 1:
+			d := s.Documents[0]
+			fmt.Fprintf(os.Stderr, "Downloading %s...\n", s.Title())
+			f, err = c.DownloadDocument(d.UniqueCode)
+			name = strings.TrimSuffix(d.OriginalFileName, filepath.Ext(d.OriginalFileName))
+			if strings.TrimSpace(name) == "" {
+				name = d.UniqueCode
+			}
+		default:
+			fmt.Fprintf(os.Stderr, "Downloading the %d files of %s...\n", len(s.Documents), s.Title())
+			f, err = c.DownloadRegistrationBulk(typeCode)
+			name = s.Title()
+		}
+		if err != nil {
+			exitErr(err)
+		}
+		if err := saveDownload(f, name, flags); err != nil {
+			exitErr(err)
+		}
+		return
+	}
+	exitErr(fmt.Errorf("no Documente PFA section %q, the last column of solo-cli documents pfa lists them", typeCode))
 }
 
 // documentBaseName finds a file name for a document code in the declaration
@@ -233,6 +281,80 @@ func runReport(args []string) {
 	if err := saveDownload(f, fmt.Sprintf("Registru-incasari-plati-%d", year), flags); err != nil {
 		exitErr(err)
 	}
+}
+
+const companyUsage = "Usage: solo-cli company [mentions [set <text> | clear] [-y]]"
+
+// runCompanyCmd validates the company subcommands before signing in
+func runCompanyCmd(args []string) {
+	if len(args) == 0 {
+		withClient(runCompany)
+		return
+	}
+	if args[0] != "mentions" {
+		exitErr(fmt.Errorf("unknown company subcommand %q\n%s", args[0], companyUsage))
+	}
+	flags, err := parseCmdFlags(args[1:])
+	if err != nil {
+		exitErr(err)
+	}
+	rest := flags.Args
+	var mentions *string
+	switch {
+	case len(rest) == 0:
+	case rest[0] == "set":
+		text := strings.TrimSpace(strings.Join(rest[1:], " "))
+		if text == "" {
+			exitErr(fmt.Errorf("company mentions set needs the text, company mentions clear removes it\n%s", companyUsage))
+		}
+		mentions = &text
+	case rest[0] == "clear" && len(rest) == 1:
+	default:
+		exitErr(fmt.Errorf("unexpected argument %q\n%s", rest[len(rest)-1], companyUsage))
+	}
+
+	c, _ := setupClient()
+	if c.CompanyID == "" {
+		exitErr(fmt.Errorf("could not determine company ID"))
+	}
+	info, err := c.GetCompanyInfo(c.CompanyID)
+	if err != nil {
+		exitErr(err)
+	}
+	current := strings.TrimSpace(info.InvoiceMentions)
+	if len(rest) == 0 {
+		if current == "" {
+			fmt.Fprintln(os.Stderr, "No invoice mentions")
+			return
+		}
+		fmt.Println(current)
+		return
+	}
+	if err := setInvoiceMentions(c, current, mentions, flags.Yes); err != nil {
+		exitErr(err)
+	}
+}
+
+// setInvoiceMentions saves mentions, nil clearing them, after a confirmation
+func setInvoiceMentions(c *client.Client, current string, mentions *string, yes bool) error {
+	question := "Remove the invoice mentions from every future invoice?"
+	done := "Invoice mentions cleared"
+	if mentions != nil {
+		question = fmt.Sprintf("Print %q on every future invoice?", *mentions)
+		done = "Invoice mentions updated"
+	}
+	if (mentions == nil && current == "") || (mentions != nil && *mentions == current) {
+		fmt.Fprintln(os.Stderr, "Invoice mentions already match, nothing to update")
+		return nil
+	}
+	if err := confirm(question, yes); err != nil {
+		return err
+	}
+	if err := c.UpdateInvoiceMentions(c.CompanyID, mentions); err != nil {
+		return err
+	}
+	fmt.Println(done)
+	return nil
 }
 
 // printCompanyExtras appends the VIES state and the bank accounts to the

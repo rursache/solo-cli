@@ -169,9 +169,11 @@ solo-cli upload -r invoice.pdf      # Upload revenue document
 # Documents and account
 solo-cli documents                  # Filed tax declarations (alias: docs)
 solo-cli documents pfa              # Documente PFA files
+solo-cli documents pfa download <type>  # Save a whole Documente PFA section
 solo-cli documents download <code>  # Save a declaration or PFA document
 solo-cli report 2025                # Save the cash flow register PDF
 solo-cli company                    # Company profile, VIES and bank accounts
+solo-cli company mentions set <text> -y  # Change the text printed on every invoice
 solo-cli subscription               # SOLO.ro subscription
 solo-cli referral                   # Referral link and rewards
 solo-cli clients [search]           # Clients (alias: customers)

@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/http/httputil"
@@ -47,8 +48,28 @@ func newAccountMock(t *testing.T) (*mockAPI, *[]string) {
 	mux.HandleFunc("/api/documents/registration-documents", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, `{"Sections":[
 			{"DocumentTypeCode":"trade_register","Documents":[{"UniqueCode":"doc_reg1","OriginalFileName":"certificat.pdf","DocumentTypeCode":"trade_register","MimeType":"application/pdf","ModifiedOn":"2024-01-10T09:00:00+02:00"}],"HasDocuments":true},
-			{"DocumentTypeCode":"trade_certificate_vat","Documents":[],"HasDocuments":false}
+			{"DocumentTypeCode":"trade_certificate_vat","Documents":[],"HasDocuments":false},
+			{"DocumentTypeCode":"trade_register_change","Documents":[
+				{"UniqueCode":"doc_chg1","OriginalFileName":"modificare-1.pdf","DocumentTypeCode":"trade_register_change","MimeType":"application/pdf","ModifiedOn":"2025-02-01T09:00:00+02:00"},
+				{"UniqueCode":"doc_chg2","OriginalFileName":"modificare-2.pdf","DocumentTypeCode":"trade_register_change","MimeType":"application/pdf","ModifiedOn":"2025-03-01T09:00:00+02:00"}],"HasDocuments":true}
 		]}`)
+	})
+	mux.HandleFunc("/api/documents/download-bulk/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Referer") != api.server.URL+"/documents/company" {
+			t.Errorf("bulk download referer %q", r.Header.Get("Referer"))
+		}
+		w.Header().Set("Content-Type", "application/zip")
+		fmt.Fprint(w, "PK archive "+filepath.Base(r.URL.Path))
+	})
+	mux.HandleFunc("/proxy/accounting/company/basic-profile/company_"+mockCompanyID, func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, `{"Ok":true,"Data":{"Name":"Test PFA","Code1":"11111111","Code2":"F1/1/2026","Address":"Str. Exemplu 1","InvoiceMentions":"Capital social: 200 RON"}}`)
+	})
+	mux.HandleFunc("/proxy/accounting/company/update-settings", func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		api.mu.Lock()
+		api.listReqs[r.URL.Path] = append(api.listReqs[r.URL.Path], string(body))
+		api.mu.Unlock()
+		fmt.Fprint(w, `{"Ok":true,"Data":null,"ErrorCode":null,"ErrorMessage":null}`)
 	})
 	mux.HandleFunc("/api/documents/download/", func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasSuffix(r.URL.Path, "/missing") {
@@ -160,8 +181,10 @@ func TestDocumentsCommands(t *testing.T) {
 	dir := t.TempDir()
 
 	expectOutputs(t, e, api, dir, map[string]string{
-		"documents":         "D212\t2025\t2026-05-20\tdoc_d212\nD300\taugust 2026\t2026-09-25\tdoc_d300\n",
-		"docs|pfa":          "Acte infiintare\tdoc_reg1\tcertificat.pdf\t2024-01-10\n",
+		"documents": "D212\t2025\t2026-05-20\tdoc_d212\nD300\taugust 2026\t2026-09-25\tdoc_d300\n",
+		"docs|pfa": "Acte infiintare\tdoc_reg1\tcertificat.pdf\t2024-01-10\ttrade_register\n" +
+			"Modificari PFA\tdoc_chg1\tmodificare-1.pdf\t2025-02-01\ttrade_register_change\n" +
+			"Modificari PFA\tdoc_chg2\tmodificare-2.pdf\t2025-03-01\ttrade_register_change\n",
 		"expenses":          "99.99 RON\tServicii\tHosting SRL\tdoc_exp1\n10.00 RON\tProtocol\tCafe SRL\n",
 		"queue":             "receipt.pdf\t3 days\tOVERDUE\t(ID: 42)\tdoc_q42\n",
 		"expenses|rejected": "blurry.jpg\tunreadable\t(ID: 7)\tdoc_rej7\n",
@@ -184,7 +207,10 @@ func TestAccountArgumentErrors(t *testing.T) {
 		`unknown expenses subcommand "-h"`:     {"expenses", "-h"},
 		`unexpected argument "x"`:              {"expenses", "rejected", "x"},
 		`unexpected argument "extra"`:          {"documents", "pfa", "extra"},
-		`unexpected argument "more"`:           {"company", "more"},
+		`unknown company subcommand "more"`:    {"company", "more"},
+		`unexpected argument "now"`:            {"company", "mentions", "clear", "now"},
+		"company mentions set needs the text":  {"company", "mentions", "set", "-y"},
+		"needs one section type":               {"documents", "pfa", "download"},
 	} {
 		out, errOut, code := e.runIn(t, api, t.TempDir(), args...)
 		if code != 1 || out != "" || !strings.Contains(errOut, want) {
@@ -228,6 +254,19 @@ func TestDocumentDownloads(t *testing.T) {
 	}
 	if _, errOut, code := e.runIn(t, api, dir, "documents", "download"); code != 1 || !strings.Contains(errOut, "missing document code") {
 		t.Errorf("missing code: %d %q", code, errOut)
+	}
+
+	// A PFA section with several files comes as the archive, a single file as itself
+	if out, errOut, code := e.runIn(t, api, dir, "documents", "pfa", "download", "trade_register_change"); code != 0 || out != "Modificari PFA.zip\n" || readIn(t, dir, "Modificari PFA.zip") != "PK archive trade_register_change" {
+		t.Errorf("pfa bulk download: %d %q %q", code, out, errOut)
+	}
+	if out, errOut, code := e.runIn(t, api, dir, "docs", "pfa", "dl", "trade_register", "-o", "single.pdf"); code != 0 || out != "single.pdf\n" || readIn(t, dir, "single.pdf") != "%PDF-1.4 doc_reg1" {
+		t.Errorf("pfa single file section: %d %q %q", code, out, errOut)
+	}
+	for section, want := range map[string]string{"trade_certificate_vat": "has no files", "bogus": `no Documente PFA section "bogus"`} {
+		if out, errOut, code := e.runIn(t, api, dir, "documents", "pfa", "download", section); code != 1 || out != "" || !strings.Contains(errOut, want) {
+			t.Errorf("pfa download %s: %d %q %q", section, code, out, errOut)
+		}
 	}
 
 	if out, errOut, code := e.runIn(t, api, dir, "expenses", "download", "doc_exp1"); code != 0 || out != "doc_exp1.jpg\n" {
@@ -319,5 +358,45 @@ func TestClientsAndRates(t *testing.T) {
 	}
 	if _, errOut, code := e.runIn(t, api, dir, "rates", "05.01.2026"); code != 1 || !strings.Contains(errOut, "YYYY-MM-DD") {
 		t.Errorf("rates with a bad date: %d %q", code, errOut)
+	}
+}
+
+func TestCompanyMentions(t *testing.T) {
+	api, _ := newAccountMock(t)
+	e := newEnv(t, "good-password")
+	dir := t.TempDir()
+	const path = "/proxy/accounting/company/update-settings"
+
+	expectOutputs(t, e, api, dir, map[string]string{
+		"company|mentions": "Capital social: 200 RON\n",
+	})
+	if out, _, _ := e.runIn(t, api, dir, "company"); !strings.Contains(out, "Address: Str. Exemplu 1\nInvoice mentions: Capital social: 200 RON\n") {
+		t.Errorf("company must show the invoice mentions: %q", out)
+	}
+
+	// Without a terminal nothing changes unless -y is given
+	out, errOut, code := e.runIn(t, api, dir, "company", "mentions", "set", "Capital", "social:", "500", "RON")
+	if code != 1 || out != "" || !strings.Contains(errOut, "needs confirmation") || api.takeListReqs(path) != "" {
+		t.Errorf("unconfirmed set: %d %q %q", code, out, errOut)
+	}
+	out, errOut, code = e.runIn(t, api, dir, "company", "mentions", "set", "Capital social: 500 RON", "-y")
+	if code != 0 || out != "Invoice mentions updated\n" {
+		t.Errorf("set: %d %q %q", code, out, errOut)
+	}
+	if got := api.takeListReqs(path); got != `{"CompanyCode":"company_`+mockCompanyID+`","InvoiceMentions":"Capital social: 500 RON"}` {
+		t.Errorf("set body = %s", got)
+	}
+	out, errOut, code = e.runIn(t, api, dir, "company", "mentions", "clear", "-y")
+	if code != 0 || out != "Invoice mentions cleared\n" {
+		t.Errorf("clear: %d %q %q", code, out, errOut)
+	}
+	if got := api.takeListReqs(path); got != `{"CompanyCode":"company_`+mockCompanyID+`","InvoiceMentions":null}` {
+		t.Errorf("clear body = %s", got)
+	}
+
+	// The current text is not saved again
+	out, errOut, code = e.runIn(t, api, dir, "company", "mentions", "set", "Capital social: 200 RON", "-y")
+	if code != 0 || out != "" || !strings.Contains(errOut, "already match") || api.takeListReqs(path) != "" {
+		t.Errorf("unchanged set: %d %q %q", code, out, errOut)
 	}
 }

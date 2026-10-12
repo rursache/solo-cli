@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	"solo-cli/client"
 	"solo-cli/config"
@@ -130,6 +131,9 @@ func runCompany(c *client.Client) {
 	fmt.Printf("CUI: %s\n", company.Code1)
 	fmt.Printf("Reg: %s\n", company.Code2)
 	fmt.Printf("Address: %s\n", company.Address)
+	if m := strings.TrimSpace(company.InvoiceMentions); m != "" {
+		fmt.Printf("Invoice mentions: %s\n", m)
+	}
 
 	if codes, err := c.GetCAENCodes(c.CompanyID); err == nil {
 		for _, code := range codes {

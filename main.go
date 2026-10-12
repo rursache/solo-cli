@@ -57,11 +57,7 @@ func main() {
 	case "efactura", "einvoice", "ei":
 		runEFacturaCmd(cmdArgs)
 	case "company":
-		if len(cmdArgs) > 0 {
-			fmt.Fprintf(os.Stderr, "Error: unexpected argument %q\nUsage: solo-cli company\n", cmdArgs[0])
-			os.Exit(1)
-		}
-		withClient(runCompany)
+		runCompanyCmd(cmdArgs)
 	case "taxes", "tax":
 		withClientArgs(runTaxes, cmdArgs)
 	case "alerts", "alert":
@@ -148,7 +144,9 @@ Expenses:
 
 Documents:
   documents             List filed tax declarations (alias: docs)
-  documents pfa         List the Documente PFA files
+  documents pfa         List the Documente PFA files, last column is the section type
+  documents pfa download <type> [-o path] [-f]
+                        Save every file of a Documente PFA section (alias: dl)
   documents download <code> [-o path] [-f]
                         Save a declaration or PFA document (alias: dl)
   report [year] [-o path] [-f]
@@ -156,6 +154,9 @@ Documents:
 
 Account:
   company               Company profile, VIES status and bank accounts
+  company mentions      Text printed on every invoice
+  company mentions set <text> [-y]
+                        Change the invoice mentions, company mentions clear [-y] removes them
   subscription          SOLO.ro subscription, changes stay on the web
   referral              Referral link, prizes and rewards
   clients [text]        List clients, optionally filtered by a search text (alias: customers)
