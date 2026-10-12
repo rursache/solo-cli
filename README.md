@@ -112,11 +112,20 @@ solo-cli
 Navigate with keyboard:
 - `Tab` / `←` `→` - Switch between tabs
 - `↑` `↓` / `j` `k` - Navigate lists
-- `d` - Delete item (Queue tab only)
+- `Enter` - Show every field of the selected row
+- `/` - Search the active list
+- `[` `]` - Switch year (Dashboard, Taxes and Chart)
+- `d` - Delete the selected document (Queue tab only, asks `y/n` first)
 - `r` - Refresh data
 - `q` - Quit
 
-**Tabs:** Dashboard → Revenues → Expenses → e-Factura → Queue → Taxes
+**Tabs:** Dashboard → Revenues → Expenses → e-Factura → Queue → Taxes → Chart
+
+- **Dashboard**: company details, the yearly summary and a panel with the Declaratia Unica status for last year (with its 25 May deadline) and the active VAT, CAEN and power of attorney alerts
+- **Revenues** and **Expenses**: lists with a warning block above them when SOLO.ro rejected uploaded documents
+- **Taxes**: the local CAS, CASS and income tax breakdown followed by SOLO.ro's own estimate for the same year, with any line that differs flagged
+
+Run `solo-cli demo` to try the TUI with mock data, no account needed
 
 ### CLI Commands
 

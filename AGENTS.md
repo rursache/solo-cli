@@ -111,11 +111,16 @@ List endpoints accept JSON bodies with `StartIndex`, `MaxResults`, `SearchText`,
 
 The TUI is built with [Bubble Tea](https://github.com/charmbracelet/bubbletea) (Elm-architecture pattern) and [Lip Gloss](https://github.com/charmbracelet/lipgloss) for styling.
 
-- **Tabs**: Dashboard, Revenues, Expenses, e-Factura, Queue, Taxes
-- **Navigation**: Tab/arrow keys switch tabs, j/k or arrow keys navigate lists, `d` deletes in Queue tab, `r` refreshes all data
-- **Data loading**: All data is fetched concurrently on init via `tea.Batch`. Loading is complete when summary, revenues, expenses, rejected, queue, and efactura data are all present.
-- **Taxes tab**: Scrollable view of the full tax breakdown (CAS, CASS, income tax, totals, effective rate, threshold buffers, and surplus hints). Scroll with j/k or arrow keys.
+- **Tabs**: Dashboard, Revenues, Expenses, e-Factura, Queue, Taxes, Chart
+- **Navigation**: Tab/arrow keys switch tabs, j/k or arrow keys navigate lists, `[` and `]` switch year on Dashboard, Taxes and Chart, `r` refreshes all data (a no-op in demo mode)
+- **Queue delete**: `d` (or Delete) stores the selected document in `confirmDelete` and the help row asks `Delete <name>? y/n`. The next key decides: `y` deletes, anything else (and any click) cancels. Backspace never deletes. In demo mode the delete removes the item locally instead of calling the API
+- **Data loading**: All data is fetched concurrently on init via `tea.Batch`. Loading is complete when summary, revenues, expenses, rejected expenses, rejected revenues, queue, and efactura data are all present. Company, CAEN codes, alerts, the Declaratia Unica status and the SOLO tax estimate are best effort: a failed call hides their block and never sets `m.err`
+- **Dashboard notices**: a panel beside the summary box (stacked below it on narrow terminals, only if it still fits the body height) with the Declaratia Unica status of the last fiscal year (label and deadline via `client.DeadlineText`) and `GetAlerts().Active()`
+- **Taxes tab**: Scrollable view of the full tax breakdown (CAS, CASS, income tax, totals, effective rate, threshold buffers, and surplus hints) followed by the SOLO estimate box from `GetTaxEstimate`. Scroll with j/k or arrow keys. Recount `taxesLines` (`updateTaxesLines`) whenever the content changes
+- **Year scoped data and stale responses**: `[`, `]` and year clicks call `fetchYear`, which refetches the summary and the tax estimate together. `summaryMsg` and `taxEstimateMsg` both drop responses for a year other than `m.year`. The first summary and a refresh (which resets `estimateYear`) request the estimate from the `summaryMsg` handler
+- **Rejected warning blocks**: Revenues and Expenses render the same block above the list (`tui/rejected.go`, capped at three documents). `rejectedBlockHeight` is the single source for `tabViewportSize` and `listChromeShift`, keep the rendered block and that height in sync
 - **Viewport scrolling**: Lists use a manual viewport (offset + size) rather than the Bubble Tea viewport component.
+- **Demo mode**: `NewDemoModel` preloads every piece of data from `client/demo.go`, including alerts, the declaration, the tax estimate and rejected revenues. Any new TUI data needs a demo counterpart, and code paths reachable in demo mode must not touch `m.client` (it is nil)
 
 ### Tax Calculator
 

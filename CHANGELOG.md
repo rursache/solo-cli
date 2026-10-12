@@ -13,6 +13,9 @@
 - **Account commands**: `solo-cli subscription` (plan, status, price, next billing, card), `solo-cli referral` (link, prizes, rewards), `solo-cli clients [search]` (clients directory) and `solo-cli rates [YYYY-MM-DD]` (BNR exchange rates)
 - **Company details**: `solo-cli company` also shows the VIES status and every bank account
 - **Shared flags**: commands that change data ask `[y/N]` on a terminal and need `--yes` (`-y`) in scripts. Downloads save to the current directory, `-o` picks a file or directory and an existing file is only overwritten with `--force` (`-f`). The written path is printed on stdout
+- **TUI Dashboard notices**: a panel next to the summary box shows the Declaratia Unica status for last year with its 25 May deadline and the active VAT, CAEN and power of attorney alerts. It is hidden when SOLO.ro does not answer
+- **TUI SOLO estimate**: the Taxes tab ends with SOLO.ro's own CAS, CASS, income tax and total for the displayed year, refetched with `[` and `]`, and flags lines that differ from the local breakdown
+- **TUI rejected revenue documents**: the Revenues tab warns about rejected revenue documents like the Expenses tab does for expenses
 
 ### Changed
 - **Sign in through cont.solo.ro**: login now uses the new SOLO.ro account pages and bridges the session to the app, falling back to the old login only if those pages change. Accounts with two-factor authentication get a code prompt in the terminal, the "remember this device" option is always ticked so later runs skip the code for 14 days. Non-interactive runs (scripts, cron) never trigger a code SMS on their own: they stop with a message asking you to run `solo-cli` once in a terminal
@@ -20,10 +23,13 @@
 - **`queue delete` asks for confirmation**: like the other destructive commands it now needs `--yes` (`-y`) when not run in a terminal, accepts only ids shown by the queue or the rejected expenses, also deletes rejected expense documents and prints `Document deleted`. **Scripts** calling `solo-cli queue delete <id>` must add `-y`
 - **Stricter arguments**: unknown subcommands of `efactura`, `queue`, `revenues` and extra arguments to `alerts` now fail with a usage message before signing in instead of being ignored
 - **Grouped help**: `solo-cli help` groups the commands by area with one line per subcommand
+- **TUI queue delete asks first**: `d` shows `Delete <name>? y/n` on the help row, `y` deletes and any other key cancels. Backspace no longer deletes
+- **Rejected warning blocks**: the Revenues and Expenses warnings list at most three documents plus an "and N more" line, so long rejected lists cannot push the table off small terminals
 - **Dependencies**: bubbles 1.0.0 and newer charmbracelet/x, x/sys and x/text modules. Building from source now needs Go 1.26 or newer
 
 ### Fixed
 - **Revenues with foreign currency invoices**: `solo-cli revenues` and the TUI Revenues tab failed to load on accounts with invoices in another currency, because SOLO.ro sends their exchange rate as an object
+- **Demo mode crashes**: pressing `r` or deleting a queue document in `solo-cli demo` no longer crashes, refresh does nothing and the delete removes the document from the mock list
 
 ## [1.7.2]
 
