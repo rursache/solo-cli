@@ -125,7 +125,7 @@ go test -tags live ./client -v    # Live integration + schema drift tests agains
 
 ### Dependencies
 
-- Go 1.25.5+
+- Go 1.26+
 - `github.com/charmbracelet/bubbletea` - TUI framework
 - `github.com/charmbracelet/bubbles` - TUI components (spinner)
 - `github.com/charmbracelet/lipgloss` - Terminal styling
