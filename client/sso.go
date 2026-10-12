@@ -26,6 +26,10 @@ const (
 // no code prompt was supplied, reaching that page already texted a code
 var ErrMFARequired = errors.New("this account uses two-factor authentication and a code is required")
 
+// ErrMFAUnsupported is returned when the login reached a 2FA code page it
+// cannot fill in. The code may already be on its way, so there is no fallback
+var ErrMFAUnsupported = errors.New("the two-factor code page changed and solo-cli cannot fill it in, sign in on solo.ro or update solo-cli")
+
 // ErrMFAResend is returned by an MFAPromptFunc to ask for a new code
 var ErrMFAResend = errors.New("resend the two-factor code")
 
@@ -47,8 +51,9 @@ type ssoStructuralError struct{ reason string }
 
 func (e *ssoStructuralError) Error() string { return "cont.solo.ro login: " + e.reason }
 
+// structural builds a fallback reason, cleaned because it reaches stderr
 func structural(format string, args ...any) error {
-	return &ssoStructuralError{reason: fmt.Sprintf(format, args...)}
+	return &ssoStructuralError{reason: cleanString(fmt.Sprintf(format, args...))}
 }
 
 type ssoPageKind int
@@ -59,6 +64,7 @@ const (
 	ssoPagePassword
 	ssoPageMFARecommendation
 	ssoPageMFACode
+	ssoPageMFAUnreadable
 	ssoPageSuccess
 )
 
@@ -149,7 +155,7 @@ func classifySSOPage(src string, pageURL *url.URL) ssoPage {
 	if mfaForm != nil {
 		ch := makeMFAChallenge(mfaForm, doc, pageURL)
 		if ch == nil {
-			return ssoPage{}
+			return ssoPage{kind: ssoPageMFAUnreadable}
 		}
 		return ssoPage{kind: ssoPageMFACode, challenge: ch}
 	}
@@ -164,6 +170,16 @@ func classifySSOPage(src string, pageURL *url.URL) ssoPage {
 	for _, f := range doc.forms {
 		if f.passwordControl() != nil {
 			return ssoPage{kind: ssoPagePassword, form: f, message: ssoErrorMessage(doc)}
+		}
+	}
+
+	// A code page whose ids changed still has a field named like a code,
+	// checked before the email page because it may carry a hidden email
+	for _, f := range doc.forms {
+		if len(codeFieldNames(f)) > 0 && !hasEmailInput(f) {
+			if ch := makeMFAChallenge(f, doc, pageURL); ch != nil {
+				return ssoPage{kind: ssoPageMFACode, challenge: ch}
+			}
 		}
 	}
 
@@ -207,17 +223,7 @@ func makeMFAChallenge(form *htmlForm, doc *htmlDoc, pageURL *url.URL) *mfaChalle
 	if hidden := form.controlByID("otpCodeHidden"); hidden != nil && hidden.name() != "" {
 		ch.codeNames = []string{hidden.name()}
 	} else {
-		for _, c := range form.controls {
-			switch c.typ() {
-			case "hidden", "text", "number", "tel", "password":
-			default:
-				continue
-			}
-			lower := strings.ToLower(c.name())
-			if !hasClass(c.attrs, "otp-digit") && lower != "" && (strings.Contains(lower, "code") || strings.Contains(lower, "otp")) {
-				ch.codeNames = append(ch.codeNames, c.name())
-			}
-		}
+		ch.codeNames = codeFieldNames(form)
 	}
 	for _, d := range digits {
 		if d.name() != "" {
@@ -286,6 +292,32 @@ func makeMFAChallenge(form *htmlForm, doc *htmlDoc, pageURL *url.URL) *mfaChalle
 	return ch
 }
 
+// codeFieldNames lists the inputs named like a 2FA code, digit boxes excluded
+func codeFieldNames(form *htmlForm) []string {
+	var names []string
+	for _, c := range form.controls {
+		switch c.typ() {
+		case "hidden", "text", "number", "tel", "password":
+		default:
+			continue
+		}
+		lower := strings.ToLower(c.name())
+		if !hasClass(c.attrs, "otp-digit") && lower != "" && (strings.Contains(lower, "code") || strings.Contains(lower, "otp")) {
+			names = append(names, c.name())
+		}
+	}
+	return names
+}
+
+func hasEmailInput(form *htmlForm) bool {
+	for _, c := range form.controls {
+		if c.typ() == "email" {
+			return true
+		}
+	}
+	return false
+}
+
 // mfaActionKind tells the resend and email fallback buttons apart from the
 // verify button
 func mfaActionKind(c *htmlControl) string {
@@ -307,7 +339,8 @@ type ssoState struct {
 
 // ssoLogin drives email, password, the 2FA recommendation (always skipped,
 // never activated) and the code page, then opens the falcon bridge. Errors
-// of type *ssoStructuralError before the code page allow the legacy fallback
+// of type *ssoStructuralError before the code page allow the legacy fallback,
+// network failures and unexpected form targets never do
 func (c *Client) ssoLogin(email, password string, prompt MFAPromptFunc) error {
 	start, err := url.Parse(ssoBaseURL + ssoLoginPath)
 	if err != nil {
@@ -346,12 +379,12 @@ func (c *Client) ssoLogin(email, password string, prompt MFAPromptFunc) error {
 		default:
 			req, err = c.ssoPostForm(ch.form, ch.fieldsFor(code), ch.pageURL, ch.submitter)
 		}
-		if err != nil {
-			return fmt.Errorf("two-factor login failed: %w", err)
-		}
-		nextSrc, nextURL, err := c.ssoLoad(req)
 		if err == nil {
-			ch, err = c.ssoAdvance(nextSrc, nextURL, &ssoState{sentEmail: true, sentPasswd: true})
+			var nextSrc string
+			var nextURL *url.URL
+			if nextSrc, nextURL, err = c.ssoLoad(req); err == nil {
+				ch, err = c.ssoAdvance(nextSrc, nextURL, &ssoState{sentEmail: true, sentPasswd: true})
+			}
 		}
 		if err != nil {
 			var se *ssoStructuralError
@@ -406,13 +439,15 @@ func (c *Client) ssoAdvance(src string, pageURL *url.URL, st *ssoState) (*mfaCha
 			req, err = c.ssoPostForm(page.form, page.form.fields(nil, nil, nil), pageURL, nil)
 		case ssoPageMFACode:
 			return page.challenge, nil
+		case ssoPageMFAUnreadable:
+			return nil, ErrMFAUnsupported
 		case ssoPageSuccess:
 			return nil, c.ssoOpenBridge(page.redirect, pageURL)
 		default:
-			return nil, structural("unrecognised login page at %s", pageURL.Path)
+			return nil, structural("unrecognised login page at %s", pageURL.EscapedPath())
 		}
 		if err != nil {
-			return nil, structural("%v", err)
+			return nil, err
 		}
 		if src, pageURL, err = c.ssoLoad(req); err != nil {
 			return nil, err
@@ -490,40 +525,59 @@ func (c *Client) ssoRequest(method string, u *url.URL, body io.Reader, referer *
 	return req, nil
 }
 
-// ssoPostForm submits a form like a browser, as a GET query when its method is get
+// ssoPostForm submits a form like a browser, as a GET query when its method
+// is get. Credentials only ever go to the cont.solo.ro origin, so a page or
+// form target anywhere else is a hard error rather than a fallback
 func (c *Client) ssoPostForm(form *htmlForm, fields []formField, pageURL *url.URL, submitter *htmlControl) (*http.Request, error) {
 	target, err := form.actionURL(pageURL, submitter)
 	if err != nil {
-		return nil, err
+		return nil, structural("%v", err)
+	}
+	for _, u := range []*url.URL{pageURL, target} {
+		if !onSSOOrigin(u) {
+			return nil, fmt.Errorf("cont.solo.ro login: refusing to send the sign in form to %s", cleanString(u.Scheme+"://"+u.Host))
+		}
 	}
 	body := formEncode(fields)
 	if form.method() == "get" {
 		target.RawQuery = body
-		return c.ssoRequest(http.MethodGet, target, nil, pageURL)
+		req, err := c.ssoRequest(http.MethodGet, target, nil, pageURL)
+		if err != nil {
+			return nil, structural("%v", err)
+		}
+		return req, nil
 	}
 	req, err := c.ssoRequest(http.MethodPost, target, strings.NewReader(body), pageURL)
 	if err != nil {
-		return nil, err
+		return nil, structural("%v", err)
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Origin", pageURL.Scheme+"://"+pageURL.Host)
 	return req, nil
 }
 
+// onSSOOrigin reports whether u is on the scheme and host of ssoBaseURL,
+// https://cont.solo.ro outside tests
+func onSSOOrigin(u *url.URL) bool {
+	base, err := url.Parse(ssoBaseURL)
+	return err == nil && u != nil && strings.EqualFold(u.Scheme, base.Scheme) && strings.EqualFold(u.Host, base.Host)
+}
+
 // ssoLoad performs one step and returns the page HTML and its final URL.
-// Every failure here is structural
+// An HTTP error status is structural, a network failure is not: like the
+// iOS app, being offline must not send the password to the legacy login
 func (c *Client) ssoLoad(req *http.Request) (string, *url.URL, error) {
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return "", nil, structural("transport: %v", err)
+		return "", nil, fmt.Errorf("cont.solo.ro login: %w", err)
 	}
 	defer resp.Body.Close()
 	data, err := io.ReadAll(io.LimitReader(resp.Body, ssoMaxPageBytes))
 	if err != nil {
-		return "", nil, structural("reading %s: %v", req.URL.Path, err)
+		return "", nil, fmt.Errorf("cont.solo.ro login: reading %s: %w", req.URL.EscapedPath(), err)
 	}
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		return "", nil, structural("HTTP %d for %s", resp.StatusCode, req.URL.Path)
+		return "", nil, structural("HTTP %d for %s", resp.StatusCode, req.URL.EscapedPath())
 	}
 	return string(data), resp.Request.URL, nil
 }

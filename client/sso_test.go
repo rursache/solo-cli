@@ -117,6 +117,11 @@ type ssoMock struct {
 	bridgeURL   string
 	noSolAuth   bool
 	hadRemember bool
+	// mfaHTML replaces the 2FA code page, redirectTo redirects every POST
+	// and passwordHTML replaces the password page
+	mfaHTML      string
+	redirectTo   string
+	passwordHTML string
 }
 
 func newSSOMock(t *testing.T) (*ssoMock, *Client) {
@@ -188,6 +193,15 @@ func (m *ssoMock) serveSSO(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if r.Method == http.MethodPost && m.redirectTo != "" {
+		http.Redirect(w, r, m.redirectTo, http.StatusSeeOther)
+		return
+	}
+	mfaPage := fixtureMFAPage("")
+	if m.mfaHTML != "" {
+		mfaPage = m.mfaHTML
+	}
+
 	bridge := m.bridgeURL
 	if bridge == "" {
 		bridge = m.falcon.URL + "/bridge?redirect=%2Fdashboard"
@@ -214,6 +228,10 @@ func (m *ssoMock) serveSSO(w http.ResponseWriter, r *http.Request) {
 		if r.PostForm.Get("Input.Email") != fixtureEmail {
 			m.t.Errorf("email not posted: %v", r.PostForm)
 		}
+		if m.passwordHTML != "" {
+			fmt.Fprint(w, m.passwordHTML)
+			return
+		}
 		fmt.Fprint(w, fixturePasswordPage(""))
 	default:
 		switch r.PostForm.Get("Input.Password") {
@@ -226,7 +244,7 @@ func (m *ssoMock) serveSSO(w http.ResponseWriter, r *http.Request) {
 				fmt.Fprint(w, fixtureSuccessPage(bridge))
 				return
 			}
-			fmt.Fprint(w, fixtureMFAPage(""))
+			fmt.Fprint(w, mfaPage)
 		default:
 			fmt.Fprint(w, fixturePasswordPage("Email sau parolă greșită"))
 		}
@@ -390,6 +408,94 @@ func TestSSOStructuralFailureFallsBackToLegacy(t *testing.T) {
 	}
 	if got := m.sessionValue(t, c); got != "legacy-token" {
 		t.Errorf("solo_auth = %q", got)
+	}
+}
+
+// A page recognised as 2FA that cannot be filled in must stop the login,
+// the code may already be sent
+func TestSSOUnreadableMFAPageNeverFallsBack(t *testing.T) {
+	m, c := newSSOMock(t)
+	m.mfaHTML = ssoPageHTML(`<form method="post" id="mfaForm" action="/login?handler=VerifyMfa">
+<input type="text" class="otp-digit" maxlength="1" /><input type="text" class="otp-digit" maxlength="1" />
+<input type="hidden" id="otpCodeHidden" value="" /><button type="submit">Verifică</button>
+<input name="__RequestVerificationToken" type="hidden" value="t" /></form>`)
+
+	called := false
+	err := c.Login(fixtureEmail, "mfa", func(MFAPrompt) (string, error) { called = true; return "123456", nil })
+	if !errors.Is(err, ErrMFAUnsupported) {
+		t.Fatalf("Login = %v, want ErrMFAUnsupported", err)
+	}
+	if called || m.legacyHits != 0 || c.LoginFallback != "" {
+		t.Errorf("prompt %v, legacy %d, fallback %q", called, m.legacyHits, c.LoginFallback)
+	}
+}
+
+// A code page whose form ids changed is still found by its code field
+func TestSSORenamedMFAPageStillPrompts(t *testing.T) {
+	m, c := newSSOMock(t)
+	m.mfaHTML = ssoPageHTML(`<p class="subtitle">Introdu codul primit prin SMS</p>
+<form method="post" id="otpForm" action="/login?handler=VerifyMfa">
+<input type="hidden" name="Input.Email" value="` + fixtureEmail + `" />
+<input type="text" name="Input.Code" maxlength="6" /><button type="submit">Verifică</button>
+<input name="__RequestVerificationToken" type="hidden" value="t" /></form>`)
+
+	if err := c.Login(fixtureEmail, "mfa", nil); !errors.Is(err, ErrMFARequired) {
+		t.Fatalf("Login without prompt = %v, want ErrMFARequired", err)
+	}
+	var got MFAPrompt
+	err := c.Login(fixtureEmail, "mfa", func(p MFAPrompt) (string, error) { got = p; return "123456", nil })
+	if err != nil {
+		t.Fatalf("Login with prompt: %v", err)
+	}
+	if got.CodeLength != 6 || !strings.Contains(got.Hint, "SMS") {
+		t.Errorf("prompt: %+v", got)
+	}
+	if m.legacyHits != 0 || m.sessionValue(t, c) != "sso-token" {
+		t.Errorf("legacy %d, session %q", m.legacyHits, m.sessionValue(t, c))
+	}
+}
+
+func TestSSOUnreachableNeverFallsBack(t *testing.T) {
+	m, c := newSSOMock(t)
+	m.sso.Close()
+
+	err := c.Login(fixtureEmail, "secret", nil)
+	if err == nil || errors.Is(err, ErrAuthenticationFailed) {
+		t.Fatalf("Login = %v, want a network error", err)
+	}
+	if m.legacyHits != 0 || c.LoginFallback != "" {
+		t.Errorf("an unreachable cont.solo.ro must not use the legacy login: legacy %d, fallback %q", m.legacyHits, c.LoginFallback)
+	}
+}
+
+func TestSSOFallbackReasonHasNoControlCharacters(t *testing.T) {
+	m, c := newSSOMock(t)
+	m.redirectTo = "/oops%1b%5b2J%1b%5b31mX"
+
+	if err := c.Login(fixtureEmail, "secret", nil); err != nil {
+		t.Fatalf("Login: %v", err)
+	}
+	if m.legacyHits != 1 || strings.ContainsRune(c.LoginFallback, 0x1b) || !strings.Contains(c.LoginFallback, "/oops") {
+		t.Errorf("legacy %d, fallback %q", m.legacyHits, c.LoginFallback)
+	}
+}
+
+func TestSSOCredentialsStayOnSSOOrigin(t *testing.T) {
+	var stolen int
+	other := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { stolen++ }))
+	t.Cleanup(other.Close)
+	m, c := newSSOMock(t)
+
+	for _, action := range []string{other.URL + "/steal", strings.Replace(ssoBaseURL, "http://", "https://", 1) + "/login"} {
+		m.passwordHTML = ssoPageHTML(`<form method="post" id="passwordForm" action="` + action + `">
+<input type="password" name="Input.Password" /><input name="__RequestVerificationToken" type="hidden" value="t" /></form>`)
+		err := c.Login(fixtureEmail, "secret", nil)
+		if err == nil || !strings.Contains(err.Error(), "refusing to send") {
+			t.Errorf("action %s: Login = %v", action, err)
+		}
+	}
+	if stolen != 0 || m.legacyHits != 0 {
+		t.Errorf("posts to other origins %d, legacy %d", stolen, m.legacyHits)
 	}
 }
 

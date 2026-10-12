@@ -99,20 +99,22 @@ func login(apiClient *client.Client, cfg *config.Config) error {
 	prompted := false
 	var prompt client.MFAPromptFunc
 	if interactive {
-		prompt = func(p client.MFAPrompt) (string, error) {
-			prompted = true
-			return promptMFACode(p)
-		}
+		prompt = mfaPrompter(cfg.Username, &prompted)
 	}
 
 	err := apiClient.Login(cfg.Username, cfg.Password, prompt)
 	switch {
-	case errors.Is(err, client.ErrMFARequired):
+	case errors.Is(err, client.ErrMFARequired), errors.Is(err, client.ErrMFAUnsupported):
 		markMFA(cfg.Username)
 		// The server asked for a code despite the remember cookie, so it is
 		// useless and later runs must not try again
-		apiClient.ForgetRememberCookie()
-		apiClient.SaveCookies()
+		if !prompted {
+			apiClient.ForgetRememberCookie()
+			apiClient.SaveCookies()
+		}
+		if errors.Is(err, client.ErrMFAUnsupported) {
+			return err
+		}
 		return fmt.Errorf("this account uses two-factor authentication and a code was just sent, %s", runInteractivelyHint)
 	case errors.Is(err, client.ErrAuthenticationFailed):
 		return fmt.Errorf("%v\nPlease check your credentials in the config file", err)
@@ -123,9 +125,7 @@ func login(apiClient *client.Client, cfg *config.Config) error {
 	if apiClient.LoginFallback != "" {
 		fmt.Fprintf(os.Stderr, "Note: cont.solo.ro sign in did not match the known flow (%s), used the legacy login\n", apiClient.LoginFallback)
 	}
-	if prompted {
-		markMFA(cfg.Username)
-	} else if !hadRemember && apiClient.LoginFallback == "" {
+	if !prompted && !hadRemember && apiClient.LoginFallback == "" {
 		// A full SSO login without a code and without a remember cookie
 		// proves the account no longer uses 2FA
 		clearMFA()
@@ -134,6 +134,19 @@ func login(apiClient *client.Client, cfg *config.Config) error {
 		fmt.Fprintf(os.Stderr, "Warning: could not save session: %v\n", err)
 	}
 	return nil
+}
+
+// mfaPrompter asks for the code on the terminal and flags the account on
+// the first call, the code is already sent even if the login then fails or
+// is aborted at the prompt
+func mfaPrompter(username string, prompted *bool) client.MFAPromptFunc {
+	return func(p client.MFAPrompt) (string, error) {
+		if !*prompted {
+			markMFA(username)
+		}
+		*prompted = true
+		return promptMFACode(p)
+	}
 }
 
 func promptMFACode(p client.MFAPrompt) (string, error) {
