@@ -105,7 +105,7 @@ Overview:
   alerts                Active account alerts (VAT threshold, CAEN update, procura) (alias: alert)
 
 Revenues and invoices:
-  revenues              List revenue invoices, the last column is the invoice code (aliases: revenue, rev)
+  revenues              List invoices, last column is the invoice code (aliases: revenue, rev)
   revenues queue        List revenue documents still being processed (aliases: queued, q)
   revenues rejected     List rejected revenue documents
   revenues delete <id> [-y]
@@ -133,13 +133,13 @@ e-Factura:
                         Change the sending preferences, connecting the SPV happens on the web
 
 Expenses:
-  expenses              List expenses, the last column is the document code when set (aliases: expense, exp)
+  expenses              List expenses, last column is the document code if any (aliases: expense, exp)
   expenses download <code> [-o path] [-f]
                         Save an expense, queued or rejected document (alias: dl)
   queue                 List the expense queue (alias: q)
   queue delete <id> [-y]
                         Delete a queued or rejected expense document (aliases: del, rm)
-  upload [-r] <file>    Upload an expense document, --revenue (-r) for a revenue document (alias: up)
+  upload [-r] <file>    Upload an expense document, -r (--revenue) for a revenue one (alias: up)
 
 Documents:
   documents             List filed tax declarations (alias: docs)
@@ -147,7 +147,7 @@ Documents:
   documents download <code> [-o path] [-f]
                         Save a declaration or PFA document (alias: dl)
   report [year] [-o path] [-f]
-                        Save the cash flow register PDF (registrul de incasari si plati) (alias: reports)
+                        Save the cash flow register PDF (registrul de incasari si plati, alias: reports)
 
 Account:
   company               Company profile, VIES status and bank accounts

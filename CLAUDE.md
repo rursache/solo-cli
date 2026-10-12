@@ -5,12 +5,16 @@
 solo-cli is a Go CLI and terminal UI (TUI) application for [SOLO.ro](https://solo.ro), an online accounting platform used by Romanian freelancers (PFA - Persoana Fizica Autorizata). It provides both a command-line interface for scripting and piping, and an interactive Bubble Tea-based TUI with tabbed navigation.
 
 Key capabilities:
-- View dashboard summary (revenues, expenses, taxes per year)
+- View dashboard summary (revenues, expenses, taxes per year) and active account alerts
 - List and browse revenues/invoices, expenses, queued documents, and e-Factura (national electronic invoicing)
-- Calculate CAS/CASS/income tax breakdown with bracket thresholds and surplus hints
-- Upload expense documents (PDF, images) to the processing queue
-- Delete queued expense documents
-- Cookie-based session persistence for fast re-authentication
+- Invoice details, PDF/XML/original downloads, mark paid or unpaid, delete the newest invoice
+- e-Factura status of issued invoices, manual and expedited sending, sending preferences
+- Calculate CAS/CASS/income tax breakdown with bracket thresholds and surplus hints, compared with SOLO's own estimate
+- Declaratia Unica status and deadline
+- Upload expense and revenue documents (PDF, images) to the processing queues, delete queued or rejected ones
+- Filed declarations, Documente PFA and cash flow register downloads
+- Company VIES and bank accounts, subscription, referral, clients and BNR exchange rates
+- SSO login through cont.solo.ro with 2FA and cookie-based session persistence
 - Demo mode with mock data for screenshots and testing
 - AI skill installation for Claude Code and other agents
 
@@ -20,8 +24,8 @@ Repository: `github.com/rursache/solo-cli`
 
 Package-level map (read the actual files for details, names are self-describing):
 
-- **root** (`main` package): CLI entry point and command routing (`main.go`), command handlers (`commands.go`), auth/client setup (`setup.go`), AI skill installer (`skills.go`), e2e tests (`e2e_test.go`)
-- **`client/`**: SOLO.ro API client. One file per resource (revenues, expenses, efactura, company, upload, cookies), shared HTTP plumbing in `http.go`, mock data for demo mode in `demo.go`, live/schema tests behind the `live` build tag
+- **root** (`main` package): CLI entry point, command routing and help (`main.go`), the original command handlers (`commands.go`: summary, revenues, expenses, queue, efactura list, company, taxes, upload), one `cmd_*.go` per newer area (`cmd_revenues.go` revenue documents, `cmd_invoices.go`, `cmd_efactura.go`, `cmd_taxes.go` SOLO estimate, `cmd_declaration.go`, `cmd_alerts.go`, `cmd_account.go` documents, downloads, report, company extras, subscription, referral, clients, rates), shared flag/confirm/download helpers (`cliutil.go`), auth/client setup with the 2FA prompt (`setup.go`), AI skill installer (`skills.go`), e2e tests (`e2e_test.go` plus `cmd_*_test.go` that reuse its harness)
+- **`client/`**: SOLO.ro API client. One file per resource with its types (revenues, revenue_documents, invoices, einvoice, efactura, expenses, company, company_discover, vies, bank_accounts, documents, reports, tax_estimate, tax_declaration, alerts, subscription, referral, customers, exchange_rates, upload), auth in `sso.go` + `htmlform.go` + `cookies.go`, shared HTTP plumbing in `http.go`, `envelope.go` (Ok and Status envelopes), `download.go`, `lenient.go` (number/bool/string decoding that tolerates type drift) and `timezone.go` (embedded Europe/Bucharest), mock data for demo mode in `demo.go`, live/schema tests behind the `live` build tag
 - **`config/`**: config.json handling (`config.go`) and taxes.json with `DefaultTaxConfig()` (`taxes.go`)
 - **`taxes/`**: pure tax calculation engine, no I/O
 - **`tui/`**: Bubble Tea UI. Elm-style split (`model.go`, `update.go`, `view.go`, `fetch.go`, `mouse.go`), one `tab_*.go` per tab, styles in `styles.go`
@@ -49,20 +53,59 @@ All API endpoints are under `https://falcon.solo.ro`:
 |----------|--------|---------|
 | `https://cont.solo.ro/login` | GET/POST forms | SSO authentication (then `/bridge` on falcon) |
 | `/api/security/login` | POST | Legacy authentication fallback |
+| bridge from `data-redirect-url` | GET | SSO bridge from cont.solo.ro (URL read from the login success page), sets `solo_auth` |
+| `/dashboard` | GET (HTML) | Company ID and `CompanyStartYear` discovery |
 | `/proxy/accounting/dashboard/summary` | GET | Year summary (revenues, expenses, taxes) |
 | `/proxy/accounting/revenues/list` | POST | List revenue invoices |
-| `/proxy/accounting/revenues/summary` | GET | Revenue totals |
+| `/proxy/accounting/revenues/summary` | GET | Revenue document counts |
+| `/proxy/accounting/revenues/queued` | POST | List queued revenue documents |
+| `/proxy/accounting/revenues/rejected` | POST | List rejected revenue documents |
+| `/proxy/accounting/revenues/{id}` | DELETE | Delete a queued or rejected revenue document |
+| `/proxy/accounting/invoices/load/{code}` | GET | Invoice header and line items |
+| `/proxy/accounting/invoices/download-options/{code}` | GET | Which invoice files exist (InternalPdf, InternalXml, ExternalFile) |
+| `/proxy/accounting/invoices/download/{code}` | GET | Invoice PDF |
+| `/proxy/accounting/invoices/mark-paid/{code}` | POST | Mark paid, body is a bare JSON date string at Bucharest midnight |
+| `/proxy/accounting/invoices/mark-unpaid/{code}` | POST | Mark unpaid |
+| `/proxy/accounting/invoices/pre-cancel/{code}` | GET | Whether an invoice is Deletable (only the newest) or Voidable |
+| `/proxy/accounting/invoices/cancel/{code}` | POST | Delete the newest invoice |
+| `/proxy/accounting/e-invoice/download/{code}` | GET | e-Factura XML of an issued invoice |
+| `/proxy/accounting/e-invoice/list-expenses` | POST | List received e-Factura documents |
+| `/proxy/accounting/e-invoice/queue-status/{code}` | GET | Queue state of a queued e-Factura |
+| `/proxy/accounting/e-invoice/error-reason/{code}` | GET | Why an e-Factura failed |
+| `/proxy/accounting/e-invoice/spv-attributes/{code}` | GET | ANAF upload index of a sent e-Factura |
+| `/proxy/accounting/e-invoice/manual-send/{code}` | POST | Send a skipped invoice to ANAF |
+| `/proxy/accounting/e-invoice/expedited-send/{code}` | POST | Send a scheduled e-Factura now |
+| `/proxy/accounting/e-invoice/settings` | GET | SPV connection and sending preferences |
+| `/proxy/accounting/e-invoice/settings/update` | POST | Save SendingDelayDays and SendContactInfo |
 | `/proxy/accounting/expenses/list` | POST | List expenses |
-| `/proxy/accounting/expenses/summary` | GET | Expense totals |
+| `/proxy/accounting/expenses/summary` | GET | Expense document counts |
 | `/proxy/accounting/expenses/queued` | POST | List queued documents |
 | `/proxy/accounting/expenses/rejected` | POST | List rejected expenses |
-| `/proxy/accounting/expenses/{id}` | DELETE | Delete a queued expense |
-| `/proxy/accounting/e-invoice/list-expenses` | POST | List e-Factura documents |
+| `/proxy/accounting/expenses/{id}` | DELETE | Delete a queued or rejected expense document |
+| `/proxy/accounting/tax-declaration/tax-estimate/{year}` | GET | SOLO's CAS/CASS/income tax estimate |
+| `/proxy/accounting/tax-declaration/tax-dashboard/{year}` | GET | Declaratia Unica status and taxes |
+| `/proxy/accounting/vat/alert-status` | GET | VAT threshold alert |
+| `/proxy/accounting/caen-update/alert-status` | GET | CAEN code update alert |
+| `/proxy/accounting/document-workflows/notarial-power-of-attorney/status` | GET | Procura workflow alert |
 | `/proxy/accounting/company/basic-profile/company_{id}` | GET | Company profile |
+| `/proxy/accounting/company/caen-codes/company_{id}` | GET | CAEN codes |
+| `/proxy/accounting/company/vies-profile/company_{id}` | GET | VIES status (Ok envelope) |
+| `/proxy/accounting/bank-accounts/company_{id}` | GET | Bank accounts |
+| `/proxy/accounting/reports/cashflow-report/company_{id}/{year}` | GET | Cash flow register PDF |
+| `/proxy/accounting/subscription/summary` | GET | Subscription, overdue payments, card |
+| `/proxy/accounting/subscription/benefits` | GET | Hosted headquarters benefit |
+| `/proxy/accounting/customers/list` | POST | Clients directory |
+| `/proxy/accounting/utility/exchange-rates` | POST | BNR rates, body is a bare JSON date string |
+| `/api/documents/tax-declarations` | GET | Filed tax declarations |
+| `/api/documents/registration-documents` | GET | Documente PFA sections |
+| `/api/documents/download/{code}` | GET | Declaration or PFA file (unknown codes answer an empty 200) |
+| `/api/financial-documents/download/{documentCode}` | GET | Original of an expense, revenue or external invoice document |
+| `/api/referral/campaign` | GET | Referral code and prizes |
+| `/api/referral/rewards` | GET | Earned and pending referral rewards |
 | `/api/local-storage/upload/{uploadID}` | POST | Multipart file upload |
-| `/api/financial-documents/save/expenses/{uploadID}` | POST | Confirm uploaded document |
+| `/api/financial-documents/save/{expenses or revenues}/{uploadID}` | POST | Confirm uploaded document |
 
-List endpoints accept JSON bodies with `StartIndex`, `MaxResults`, `SearchText`, `SortBy`, and `SortAsc` fields.
+List endpoints accept JSON bodies with `StartIndex`, `MaxResults`, `SearchText`, `SortBy`, and `SortAsc` fields. `revenues/list` search does not match invoice codes, `client.FindRevenueByCode` pages the list instead. Invoice dates carry a `+02:00`/`+03:00` offset and request dates are sent as Bucharest midnight (`client.InvoiceAPIDate`)
 
 ### TUI Architecture
 
@@ -110,6 +153,9 @@ go build -o solo-cli .
 ./solo-cli revenues     # CLI: list revenues
 ./solo-cli taxes        # CLI: tax breakdown for current year (alias: tax)
 ./solo-cli taxes 2025   # CLI: tax breakdown for a specific year
+./solo-cli invoice <code>          # CLI: invoice details (code = last column of revenues)
+./solo-cli efactura status <code>  # CLI: e-Factura state of an issued invoice
+./solo-cli documents    # CLI: filed tax declarations
 ./solo-cli demo         # TUI with mock data (no credentials needed)
 ```
 
@@ -120,10 +166,10 @@ go test ./...                     # Offline tests: unit, TUI render, e2e CLI (no
 go test -tags live ./client -v    # Live integration + schema drift tests against SOLO.ro
 ```
 
-- **Offline unit tests**: `taxes/taxes_test.go` (tax math), `config/config_test.go` (config and taxes.json loading), `client/client_test.go` (all API client paths against an httptest mock server, including login, lists, upload, company discovery, and cookie persistence). The `baseURL` in `client/client.go` is a var so tests can redirect it.
+- **Offline unit tests**: `taxes/taxes_test.go` (tax math), `config/config_test.go` (config and taxes.json loading), `client/*_test.go` (every API client path against an httptest mock server, one test file per resource, plus `sso_test.go` for the login flow and `helpers_test.go` for the shared plumbing), `cliutil_test.go` (flags, confirmation, download writing). The `baseURL` in `client/client.go` is a var so tests can redirect it
 - **TUI render tests** (`tui/app_test.go`): render the demo model at fixed terminal sizes and assert width/height fitting, bottom-pinned help bar, full-viewport behavior, marquee output and mouse hit-testing.
-- **E2E CLI tests** (`e2e_test.go`): build the real binary and run it against a mock SOLO.ro API (`SOLO_API_BASE` env override) with an isolated HOME. They assert exact command output, exit codes, stdout/stderr split, config and cookie file creation with correct permissions, session cookie reuse across runs, and that the CLI taxes output matches `taxes.Calculate`.
-- **Live tests** (`client/live_test.go` + `client/live_schema_test.go`, build tag `live`): authenticate with the developer's own `~/.config/solo-cli/config.json` (reusing saved cookies like the CLI does) and exercise read-only endpoints. The schema tests fetch raw JSON and verify every field our structs map still exists in the live payloads (Go decodes missing fields to silent zero values, so this is the only way to catch API drift), plus cross-endpoint consistency checks. They never upload or delete anything. Skipped automatically if no valid config exists.
+- **E2E CLI tests** (`e2e_test.go` and the `cmd_*_test.go` files that reuse its `newMockAPI`/`newEnv` harness): build the real binary and run it against a mock SOLO.ro API (`SOLO_API_BASE` and `SOLO_SSO_BASE` env overrides) with an isolated HOME. They assert exact command output, exit codes, stdout/stderr split, config and cookie file creation with correct permissions, session cookie reuse across runs, that the CLI taxes output matches `taxes.Calculate`, that mutating commands refuse without `--yes` when stdin is not a terminal and that downloads never overwrite without `--force`
+- **Live tests** (`client/live_*_test.go`, build tag `live`): authenticate with the developer's own `~/.config/solo-cli/config.json` (reusing saved cookies like the CLI does) and exercise read-only endpoints. The schema tests fetch raw JSON and verify every field our structs map still exists in the live payloads (Go decodes missing fields to silent zero values, so this is the only way to catch API drift), plus cross-endpoint consistency checks. They never upload or delete anything. Skipped automatically if no valid config exists
 - TUI visual testing remains manual via `solo-cli demo`.
 
 ### Dependencies
@@ -199,7 +245,7 @@ File is created with permissions 0600 (owner read/write only).
 
 Location: `~/.config/solo-cli/cookies.json`
 
-Stores serialized HTTP cookies (name, value, domain, path, expires) from the SOLO.ro session. Also created with 0600 permissions. Loaded and validated on each run to avoid unnecessary re-authentication.
+Stores serialized HTTP cookies (name, value, domain, path, expires, host-only, secure) for falcon.solo.ro and cont.solo.ro, including the 14 day `__Host-solo_remember` cookie that skips the 2FA code. Created with 0600 permissions. Loaded and validated on each run to avoid unnecessary re-authentication. A `.mfa-required` flag file next to it marks accounts that need a 2FA code, so non-interactive runs never start a login that would text one
 
 ### Taxes Config File
 
@@ -210,7 +256,7 @@ Auto-generated with defaults on first use of any taxes feature (CLI or TUI). Saf
 ```json
 {
   "year": 2026,
-  "salariu_minim_brut": 4325,
+  "salariu_minim_brut": 4050,
   "income_tax_percent": 10,
   "cas_percent": 25,
   "cas_thresholds": [...],
@@ -225,10 +271,11 @@ Each threshold entry has `min_salaries`, `max_salaries`, `base_salaries`, and `l
 
 - This is a Go project. Do not apply Swift/iOS patterns.
 - Module name is `solo-cli` (not a domain-style module path).
-- No test files exist yet. If adding tests, use standard Go testing (`_test.go` files).
+- Tests use standard Go testing (`_test.go` files) with httptest mocks, never the live API outside the `live` build tag
 - API response types are defined in the same file as the client methods that use them (e.g., `Revenue` type is in `revenues.go`).
 - CLI output is tab-separated for piping. Status/progress messages go to stderr; data goes to stdout.
 - The TUI uses the Elm architecture pattern (Model, Init, Update, View) via Bubble Tea.
 - Error handling follows Go conventions: return errors up the call stack, handle at the top level in `main.go`.
 - Shared client plumbing: `doJSON` (decode + sanitize), `doRaw` (bare scalar or empty answers), `doOk` with `OkResponse[T]`/`APIError` for the `{Ok, Data, ErrorCode, ErrorMessage}` envelope, `StatusResponse` for `{Status}` answers, `download` + `DownloadedFile` + `FileExtension` for file endpoints (`client/envelope.go`, `client/download.go`)
+- CLI output additions go in a new **last** column so scripts keep working. Commands with arguments validate them before signing in (`run<Name>Cmd(args)` wrappers in `main.go`)
 - Shared CLI plumbing (`cliutil.go`): `parseCmdFlags` (`--yes/-y`, `--force/-f`, `-o/--output`), `confirm` (TTY `[y/N]` prompt or `--yes`, required for destructive or outward-facing commands), `saveDownload`/`writeDownload` (never overwrite without `--force`, print the written path on stdout), `exitErr`

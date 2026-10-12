@@ -1,7 +1,29 @@
 ## [Unreleased]
 
+### Added
+- **Invoice commands**: `solo-cli invoice <code>` shows an issued invoice with its line items, `invoice download <code>` saves the PDF (`--xml` for the e-Factura XML, `--original` for an uploaded invoice), `invoice paid <code> [YYYY-MM-DD]` and `invoice unpaid <code>` change the payment state and `invoice delete <code>` deletes the newest invoice. The code is the new last column of `solo-cli revenues`
+- **Revenue documents**: `revenues queue` and `revenues rejected` list uploaded revenue documents, `revenues delete <id>` removes a queued or rejected one and `upload -r <file>` uploads a revenue document instead of an expense
+- **e-Factura for issued invoices**: `efactura status <invoice>` explains where an invoice is in the e-Factura flow (queued with its send date, sent with the ANAF upload index, error with the reason), `efactura send` submits an invoice left on manual sending, `efactura expedite` sends a scheduled one now and `efactura settings` / `efactura settings set --delay 0|2 --contact-info yes|no` show and change the sending preferences. `<invoice>` takes the invoice code or its serial
+- **SOLO estimate in taxes**: `solo-cli taxes` now ends with SOLO.ro's own CAS, CASS and income tax estimate for the same year and flags any line that differs from the local calculator by 1 RON or more
+- **Declaratia Unica**: `solo-cli declaration [year]` (alias `du`) shows the D212 filing status, the taxes SOLO computed and the 25 May deadline with the days left
+- **Alerts**: `solo-cli alerts` lists the active dashboard alerts (VAT threshold, CAEN code update, notarial power of attorney) and `summary` prints them on stderr after its data
+- **Documents**: `solo-cli documents` lists filed tax declarations, `documents pfa` the Documente PFA files and `documents download <code>` saves one
+- **Downloads of originals**: `expenses download <code>` saves the original of an expense, queued or rejected document
+- **Cash flow register**: `solo-cli report [year]` saves the registrul de incasari si plati PDF
+- **Account commands**: `solo-cli subscription` (plan, status, price, next billing, card), `solo-cli referral` (link, prizes, rewards), `solo-cli clients [search]` (clients directory) and `solo-cli rates [YYYY-MM-DD]` (BNR exchange rates)
+- **Company details**: `solo-cli company` also shows the VIES status and every bank account
+- **Shared flags**: commands that change data ask `[y/N]` on a terminal and need `--yes` (`-y`) in scripts. Downloads save to the current directory, `-o` picks a file or directory and an existing file is only overwritten with `--force` (`-f`). The written path is printed on stdout
+
 ### Changed
 - **Sign in through cont.solo.ro**: login now uses the new SOLO.ro account pages and bridges the session to the app, falling back to the old login only if those pages change. Accounts with two-factor authentication get a code prompt in the terminal, the "remember this device" option is always ticked so later runs skip the code for 14 days. Non-interactive runs (scripts, cron) never trigger a code SMS on their own: they stop with a message asking you to run `solo-cli` once in a terminal
+- **New last columns**: `revenues` ends with the invoice code, `expenses` and `queue` end with the document code when SOLO.ro has one. Existing columns keep their positions. The rejected expenses warning also shows the document code
+- **`queue delete` asks for confirmation**: like the other destructive commands it now needs `--yes` (`-y`) when not run in a terminal, accepts only ids shown by the queue or the rejected expenses, also deletes rejected expense documents and prints `Document deleted`. **Scripts** calling `solo-cli queue delete <id>` must add `-y`
+- **Stricter arguments**: unknown subcommands of `efactura`, `queue`, `revenues` and extra arguments to `alerts` now fail with a usage message before signing in instead of being ignored
+- **Grouped help**: `solo-cli help` groups the commands by area with one line per subcommand
+- **Dependencies**: bubbles 1.0.0 and newer charmbracelet/x, x/sys and x/text modules. Building from source now needs Go 1.26 or newer
+
+### Fixed
+- **Revenues with foreign currency invoices**: `solo-cli revenues` and the TUI Revenues tab failed to load on accounts with invoices in another currency, because SOLO.ro sends their exchange rate as an object
 
 ## [1.7.2]
 
