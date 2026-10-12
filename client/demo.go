@@ -153,6 +153,24 @@ func GetDemoTaxDeclaration() *TaxDeclarationDashboard {
 	}
 }
 
+// GetDemoTaxEstimate returns a mock SOLO tax estimate for demo mode, in
+// line with the local breakdown of the demo summary
+func GetDemoTaxEstimate(year int) *TaxEstimate {
+	f := func(v float64) *float64 { return &v }
+	return &TaxEstimate{
+		FiscalYear:              year,
+		TotalRevenues:           f(125840.50),
+		HasDeductibleExpenses:   true,
+		TotalDeductibleExpenses: f(42350.75),
+		HasTaxableRevenue:       true,
+		TaxableRevenue:          f(83489.75),
+		RetirementTax:           f(12150.00),
+		HealthTax:               f(8348.98),
+		IncomeTax:               f(6299.08),
+		TotalTaxes:              f(26798.06),
+	}
+}
+
 // GetDemoEFactura returns mock e-factura data for demo mode
 func GetDemoEFactura() *EFacturaListResponse {
 	items := []EFactura{

@@ -78,7 +78,7 @@ func (m *Model) clickYear(x, y int) tea.Cmd {
 			if yr != m.year {
 				m.year = yr
 				m.taxesScroll = 0
-				return m.fetchSummary
+				return m.fetchYear()
 			}
 			return nil
 		}

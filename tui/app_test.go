@@ -1223,3 +1223,132 @@ func TestDashboardNoticesBestEffort(t *testing.T) {
 		t.Error("declaration status line missing")
 	}
 }
+
+// The Taxes tab ends with SOLO's own estimate for the displayed year and
+// flags lines that differ from the local breakdown
+func TestTaxesSOLOEstimate(t *testing.T) {
+	m := NewDemoModel()
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 24})
+	m = updated.(Model)
+	m.activeTab = TabTaxes
+
+	content := stripANSI(m.renderTaxes())
+	for _, want := range []string{fmt.Sprintf("SOLO estimate (%d)", m.summary.Year), "CAS: ", "CASS: ", "Income Tax: ", "Matches the local breakdown"} {
+		if !strings.Contains(content, want) {
+			t.Errorf("estimate box missing %q", want)
+		}
+	}
+
+	// The scroll bound covers the estimate: scrolling to the end shows it
+	for i := 0; i < m.taxesLines; i++ {
+		updated, _ = m.Update(keyMsg("j"))
+		m = updated.(Model)
+	}
+	lines := strings.Split(m.View(), "\n")
+	if len(lines) != 24 {
+		t.Errorf("scrolled view has %d lines, want 24", len(lines))
+	}
+	if !strings.Contains(stripANSI(m.View()), "Matches the local breakdown") {
+		t.Error("estimate box not reachable by scrolling")
+	}
+
+	// A different SOLO figure is flagged with the local value
+	other := 1234.0
+	m.taxEstimate.IncomeTax = &other
+	content = stripANSI(m.renderTaxes())
+	if !strings.Contains(content, "Income Tax: 1234.00 RON (local ") || !strings.Contains(content, "Differs from the local breakdown") {
+		t.Errorf("differing line not flagged:\n%s", content)
+	}
+
+	// No figures at all says so instead of rendering zeros
+	m.taxEstimate = &client.TaxEstimate{FiscalYear: m.summary.Year}
+	if content = stripANSI(m.renderTaxes()); !strings.Contains(content, "SOLO has no estimate for this year") {
+		t.Error("empty estimate notice missing")
+	}
+
+	// A failed fetch or an estimate for another year hides the box
+	m.taxEstimate = nil
+	if strings.Contains(m.renderTaxes(), "SOLO estimate") {
+		t.Error("box shown without an estimate")
+	}
+	m.taxEstimate = client.GetDemoTaxEstimate(m.summary.Year - 1)
+	m.estimateYear = m.summary.Year - 1
+	if strings.Contains(m.renderTaxes(), "SOLO estimate") {
+		t.Error("box shown for another year's estimate")
+	}
+}
+
+// Year switches refetch the estimate with the summary and a slow estimate
+// for a year no longer displayed is dropped, like summaryMsg
+func TestTaxEstimateYearFlow(t *testing.T) {
+	m := NewDemoModel()
+	m.demoMode = false
+	m.activeTab = TabTaxes
+	m.year, m.maxYear, m.estimateYear = 0, 0, 0
+	m.taxEstimate = nil
+
+	// The first summary resolves the year and requests its estimate
+	updated, cmd := m.Update(summaryMsg(&client.Summary{Year: 2026, TotalRevenues: 1000}))
+	m = updated.(Model)
+	if cmd == nil || m.estimateYear != 2026 {
+		t.Fatalf("first summary must request the 2026 estimate (cmd %v, estimateYear %d)", cmd, m.estimateYear)
+	}
+	est2026 := client.GetDemoTaxEstimate(2026)
+	updated, _ = m.Update(taxEstimateMsg{2026, est2026})
+	m = updated.(Model)
+	if m.taxEstimate != est2026 {
+		t.Fatal("estimate for the displayed year not stored")
+	}
+
+	// A summary for the same year does not refetch it
+	updated, cmd = m.Update(summaryMsg(&client.Summary{Year: 2026, TotalRevenues: 1000}))
+	m = updated.(Model)
+	if cmd != nil {
+		t.Error("summary for an already estimated year must not refetch the estimate")
+	}
+
+	// [ switches the year and requests both again, hiding the old estimate
+	updated, cmd = m.Update(keyMsg("["))
+	m = updated.(Model)
+	if cmd == nil || m.year != 2025 || m.estimateYear != 2025 || m.taxEstimate != nil {
+		t.Fatalf("[ must refetch the estimate (year %d, estimateYear %d, estimate %v)", m.year, m.estimateYear, m.taxEstimate)
+	}
+	// The refetched summary does not request a duplicate
+	updated, cmd = m.Update(summaryMsg(&client.Summary{Year: 2025}))
+	m = updated.(Model)
+	if cmd != nil {
+		t.Error("summary after a year switch requested a duplicate estimate")
+	}
+
+	// A slow response for the previous year is dropped
+	updated, _ = m.Update(taxEstimateMsg{2026, est2026})
+	m = updated.(Model)
+	if m.taxEstimate != nil {
+		t.Fatal("stale 2026 estimate landed while 2025 is displayed")
+	}
+	if strings.Contains(m.renderTaxes(), "SOLO estimate") {
+		t.Error("stale estimate rendered")
+	}
+
+	// A failed fetch for the displayed year keeps the box hidden, no error
+	updated, _ = m.Update(taxEstimateMsg{year: 2025})
+	m = updated.(Model)
+	if m.err != nil || m.taxEstimate != nil {
+		t.Errorf("failed estimate must hide the box quietly (err %v)", m.err)
+	}
+	est2025 := client.GetDemoTaxEstimate(2025)
+	updated, _ = m.Update(taxEstimateMsg{2025, est2025})
+	m = updated.(Model)
+	if m.taxEstimate != est2025 || !strings.Contains(m.renderTaxes(), "SOLO estimate (2025)") {
+		t.Error("estimate for the displayed year not shown")
+	}
+
+	// Refresh refetches it with the summary
+	updated, _ = m.Update(keyMsg("r"))
+	m = updated.(Model)
+	updated, cmd = m.Update(summaryMsg(&client.Summary{Year: 2025}))
+	m = updated.(Model)
+	if cmd == nil {
+		t.Error("summary after a refresh must refetch the estimate")
+	}
+}

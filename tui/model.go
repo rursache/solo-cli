@@ -70,6 +70,8 @@ type Model struct {
 	efactura         *client.EFacturaListResponse
 	taxBreakdown     *taxes.TaxBreakdown
 	taxConfig        *config.TaxConfig
+	taxEstimate      *client.TaxEstimate // SOLO's estimate for estimateYear, nil hides it
+	estimateYear     int                 // Year the estimate was last requested for
 
 	// UI state
 	loading        bool
@@ -109,6 +111,13 @@ type rejectedRevenuesMsg *client.RejectedRevenueResponse
 type queueMsg *client.QueuedExpenseResponse
 type efacturaMsg *client.EFacturaListResponse
 type errMsg error
+
+// taxEstimateMsg carries the year it was fetched for so a slow response
+// for a year no longer displayed is dropped. est is nil on failure
+type taxEstimateMsg struct {
+	year int
+	est  *client.TaxEstimate
+}
 type deleteSuccessMsg struct{ id int }
 
 // Page messages append to the already loaded list instead of replacing it.
@@ -178,6 +187,8 @@ func NewDemoModel() Model {
 		debugMouse:   os.Getenv("SOLO_MOUSE_DEBUG") != "",
 		taxConfig:    taxCfg,
 		taxBreakdown: taxBreakdown,
+		taxEstimate:  client.GetDemoTaxEstimate(demoSummary.Year),
+		estimateYear: demoSummary.Year,
 		// Pre-populate with demo data
 		summary:          demoSummary,
 		company:          client.GetDemoCompany(),

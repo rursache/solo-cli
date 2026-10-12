@@ -40,6 +40,26 @@ func (m Model) fetchCAEN() tea.Msg {
 	return caenMsg(codes)
 }
 
+// fetchTaxEstimate loads SOLO's tax estimate for year. A failure hides the
+// box, the local breakdown stays valid
+func (m Model) fetchTaxEstimate(year int) tea.Cmd {
+	c := m.client
+	return func() tea.Msg {
+		est, err := c.GetTaxEstimate(year)
+		if err != nil {
+			return taxEstimateMsg{year: year}
+		}
+		return taxEstimateMsg{year, est}
+	}
+}
+
+// fetchYear reloads the year scoped data after a year switch
+func (m *Model) fetchYear() tea.Cmd {
+	m.taxEstimate = nil
+	m.estimateYear = m.year
+	return tea.Batch(m.fetchSummary, m.fetchTaxEstimate(m.year))
+}
+
 // fetchAlerts loads the dashboard alerts. Sources that fail are left out
 func (m Model) fetchAlerts() tea.Msg {
 	return alertsMsg(m.client.GetAlerts().Active())

@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"math"
 	"strings"
 
 	"solo-cli/taxes"
@@ -132,7 +133,60 @@ func (m Model) renderTaxes() string {
 	)
 	b.WriteString(CompactBoxStyle.Render(totalsContent))
 
+	if est := m.renderSOLOEstimate(); est != "" {
+		b.WriteString("\n")
+		b.WriteString(est)
+	}
+
 	return b.String()
+}
+
+// estimateTolerance ignores rounding noise when comparing SOLO's estimate
+// with the local calculator, like the taxes command
+const estimateTolerance = 1.0
+
+// renderSOLOEstimate shows SOLO's own CAS, CASS and income tax estimate for
+// the displayed year, marking lines that differ from the local breakdown.
+// "" while it is missing or belongs to another year
+func (m Model) renderSOLOEstimate() string {
+	est, t := m.taxEstimate, m.taxBreakdown
+	if est == nil || t == nil || m.summary == nil || m.estimateYear != m.summary.Year {
+		return ""
+	}
+
+	var content string
+	if !est.HasFigures() {
+		content = SummaryLabelStyle.Render("SOLO has no estimate for this year")
+	} else {
+		differs := false
+		row := func(label string, solo *float64, local float64) string {
+			line := SummaryLabelStyle.Render(label) + " "
+			if solo == nil {
+				return line + SummaryLabelStyle.Render("n/a")
+			}
+			line += SummaryValueStyle.Render(taxes.FormatRON(*solo))
+			if math.Abs(*solo-local) >= estimateTolerance {
+				differs = true
+				line += SummaryLabelStyle.Render(fmt.Sprintf(" (local %s)", taxes.FormatRON(local)))
+			}
+			return line
+		}
+		total := est.Total()
+		rows := []string{
+			row("CAS:", est.RetirementTax, t.CAS.Amount),
+			row("CASS:", est.HealthTax, t.CASS.Amount),
+			row("Income Tax:", est.IncomeTax, t.IncomeTax),
+			row("Total Taxes:", &total, t.TotalTaxes),
+		}
+		if differs {
+			rows = append(rows, warningStyle.Render("Differs from the local breakdown"))
+		} else {
+			rows = append(rows, secondaryStyle.Render("Matches the local breakdown"))
+		}
+		content = strings.Join(rows, "\n")
+	}
+
+	return SummaryLabelStyle.Render(fmt.Sprintf("SOLO estimate (%d)", m.summary.Year)) + "\n" + CompactBoxStyle.Render(content)
 }
 
 // renderThresholdHint shows a "buffer to next" line if still in the lowest

@@ -163,13 +163,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.canSwitchYear() && m.year > 2015 {
 				m.year--
 				m.taxesScroll = 0
-				return m, m.fetchSummary
+				return m, m.fetchYear()
 			}
 		case "]":
 			if m.canSwitchYear() && m.year < m.maxYear {
 				m.year++
 				m.taxesScroll = 0
-				return m, m.fetchSummary
+				return m, m.fetchYear()
 			}
 		case "r":
 			// Demo data has no API to refresh from
@@ -177,6 +177,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				break
 			}
 			m.loading = true
+			// The refreshed summary refetches the estimate too
+			m.estimateYear = 0
 			m.listGen++
 			m.fetchingMore = false
 			return m, m.fetchAll()
@@ -207,8 +209,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.viewportOffset = maxOffset
 			}
 		}
-		if m.taxBreakdown != nil && m.taxesLines == 0 {
-			m.taxesLines = len(strings.Split(m.renderTaxes(), "\n"))
+		if m.taxesLines == 0 {
+			m.updateTaxesLines()
 		}
 
 	case summaryMsg:
@@ -219,6 +221,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.summary = msg
+		var cmd tea.Cmd
 		if m.summary != nil {
 			// The first summary establishes the current fiscal year, the
 			// upper bound for [ and ] year switching
@@ -228,10 +231,27 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.year = m.summary.Year
 			if m.taxConfig != nil {
 				m.taxBreakdown = taxes.Calculate(m.summary.TotalRevenues, m.summary.TotalDeductibleExpenses, m.taxConfig)
-				m.taxesLines = len(strings.Split(m.renderTaxes(), "\n"))
 			}
+			// The first summary and a refresh resolve the year the estimate
+			// is fetched for, year switches already requested it
+			if m.estimateYear != m.year && !m.demoMode {
+				m.taxEstimate = nil
+				m.estimateYear = m.year
+				cmd = m.fetchTaxEstimate(m.year)
+			}
+			m.updateTaxesLines()
 		}
 		m.checkLoadingDone()
+		return m, cmd
+
+	case taxEstimateMsg:
+		// Same stale-year guard as summaryMsg
+		if msg.year != m.year {
+			return m, nil
+		}
+		m.taxEstimate = msg.est
+		m.estimateYear = msg.year
+		m.updateTaxesLines()
 
 	case companyMsg:
 		m.company = msg
@@ -474,6 +494,13 @@ func (m *Model) removeQueued(id int) {
 	}
 	if m.viewportOffset > m.cursor {
 		m.viewportOffset = m.cursor
+	}
+}
+
+// updateTaxesLines recounts the Taxes tab content for scroll bounds
+func (m *Model) updateTaxesLines() {
+	if m.taxBreakdown != nil {
+		m.taxesLines = len(strings.Split(m.renderTaxes(), "\n"))
 	}
 }
 
