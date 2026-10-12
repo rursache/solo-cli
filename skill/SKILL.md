@@ -280,11 +280,18 @@ solo-cli -v
 | Option | Short | Description |
 |--------|-------|-------------|
 | --config | -c | Path to custom config file |
+| help | -h | Show help message |
+| version | -v | Show version |
+
+## Command flags
+
+These go after the subcommand, for example `solo-cli queue delete 42 -y`. Before the command (`solo-cli -y queue delete 42`) they fail with "Unknown command"
+
+| Flag | Short | Description |
+|------|-------|-------------|
 | --yes | -y | Confirm a mutating command without a terminal |
 | --output | -o | Download path or directory |
 | --force | -f | Overwrite an existing download |
-| help | -h | Show help message |
-| version | -v | Show version |
 
 ## Examples
 ```bash
