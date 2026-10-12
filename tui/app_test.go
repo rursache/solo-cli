@@ -347,6 +347,8 @@ func TestListPaging(t *testing.T) {
 	m := NewDemoModel()
 	m.demoMode = false
 	m.activeTab = TabRevenues
+	// No rejected warning block, it would shrink the viewport
+	m.rejectedRevenues = nil
 	// Height 18 -> viewport 8, so the prefetch threshold for 20 loaded
 	// items sits at cursor 12
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 18})
@@ -581,7 +583,7 @@ func TestSearchBarClick(t *testing.T) {
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 	m = updated.(Model)
 
-	updated, _ = m.Update(tea.MouseMsg{X: 10, Y: searchBarRowY, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress})
+	updated, _ = m.Update(tea.MouseMsg{X: 10, Y: searchBarRowY + m.listChromeShift(), Button: tea.MouseButtonLeft, Action: tea.MouseActionPress})
 	m = updated.(Model)
 	if !m.searching {
 		t.Fatal("clicking the search bar must focus it")
@@ -1031,5 +1033,86 @@ func TestQueueDeleteConfirmation(t *testing.T) {
 	lines = strings.Split(m.View(), "\n")
 	if w := lipgloss.Width(lines[len(lines)-1]); w > 30 {
 		t.Errorf("prompt is %d wide, must fit 30", w)
+	}
+}
+
+// The Revenues tab warns about rejected revenue documents like Expenses
+// does, and the viewport and click math account for the block on both
+func TestRejectedWarningBlocks(t *testing.T) {
+	const height = 30
+	m := NewDemoModel()
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: height})
+	m = updated.(Model)
+
+	for _, tc := range []struct {
+		tab     Tab
+		heading string
+		count   int
+	}{
+		{TabRevenues, "rejected revenue document(s)", len(m.rejectedRevenues.Items)},
+		{TabExpenses, "rejected expense(s)", len(m.rejected.Items)},
+	} {
+		t.Run(tc.tab.String(), func(t *testing.T) {
+			m := m
+			m.activeTab = tc.tab
+			shift := tc.count + 2
+			if m.listChromeShift() != shift {
+				t.Fatalf("listChromeShift = %d, want %d", m.listChromeShift(), shift)
+			}
+			if got := m.tabViewportSize(); got != m.viewportSize-shift {
+				t.Errorf("tabViewportSize = %d, want %d", got, m.viewportSize-shift)
+			}
+
+			lines := strings.Split(m.View(), "\n")
+			if len(lines) != height {
+				t.Fatalf("view has %d lines, want %d", len(lines), height)
+			}
+			if !strings.Contains(lines[searchBarRowY], tc.heading) {
+				t.Errorf("warning heading not on the first body row: %q", lines[searchBarRowY])
+			}
+			if !strings.Contains(lines[searchBarRowY+shift], "Search:") {
+				t.Errorf("search bar not shifted by the block: %q", lines[searchBarRowY+shift])
+			}
+			// Table rows start right below the shifted header
+			start := listRowsStartY + shift
+			updated, _ := m.Update(tea.MouseMsg{X: 5, Y: start + 2, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress})
+			if got := updated.(Model).cursor; got != 2 {
+				t.Errorf("cursor = %d after clicking the third row, want 2", got)
+			}
+			updated, _ = m.Update(tea.MouseMsg{X: 5, Y: start - 1, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress})
+			if got := updated.(Model).cursor; got != 0 {
+				t.Errorf("click on the header moved the cursor to %d", got)
+			}
+		})
+	}
+
+	// Without rejected documents the revenues layout is unshifted
+	m.activeTab = TabRevenues
+	m.rejectedRevenues = &client.RejectedRevenueResponse{}
+	if m.listChromeShift() != 0 || m.tabViewportSize() != m.viewportSize {
+		t.Error("empty rejected list must not shift the revenues list")
+	}
+	if strings.Contains(m.View(), "rejected") {
+		t.Error("warning shown without rejected documents")
+	}
+
+	// A long rejected list is capped so the table keeps its rows
+	m.rejectedRevenues = &client.RejectedRevenueResponse{}
+	for i := 0; i < 10; i++ {
+		m.rejectedRevenues.Items = append(m.rejectedRevenues.Items, client.RejectedRevenue{Id: i, DocumentName: fmt.Sprintf("doc_%d.pdf", i), Reason: "Ilizibil"})
+	}
+	want := maxRejectedShown + 3
+	if m.listChromeShift() != want {
+		t.Errorf("capped block height = %d, want %d", m.listChromeShift(), want)
+	}
+	lines := strings.Split(m.View(), "\n")
+	if len(lines) != height {
+		t.Errorf("capped view has %d lines, want %d", len(lines), height)
+	}
+	if !strings.Contains(m.View(), "and 7 more") {
+		t.Error("overflow line missing")
+	}
+	if !strings.Contains(lines[searchBarRowY+want], "Search:") {
+		t.Errorf("search bar not right below the capped block: %q", lines[searchBarRowY+want])
 	}
 }

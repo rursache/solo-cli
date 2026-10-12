@@ -21,12 +21,9 @@ const (
 )
 
 // listChromeShift is how far the list layout is pushed down by content
-// above it (the rejected warning block on the Expenses tab)
+// above it (the rejected warning block on the Expenses and Revenues tabs)
 func (m Model) listChromeShift() int {
-	if m.activeTab == TabExpenses && m.rejected != nil && len(m.rejected.Items) > 0 {
-		return len(m.rejected.Items) + 2
-	}
-	return 0
+	return m.rejectedBlockHeight()
 }
 
 func (m *Model) handleClick(x, y int) tea.Cmd {

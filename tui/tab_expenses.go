@@ -8,18 +8,7 @@ import (
 func (m Model) renderExpenses() string {
 	var b strings.Builder
 
-	// Show rejected expenses warning if any
-	if m.rejected != nil && len(m.rejected.Items) > 0 {
-		b.WriteString(ErrorStyle.Render(fmt.Sprintf("⚠️  %d rejected expense(s):", len(m.rejected.Items))))
-		b.WriteString("\n")
-		for _, r := range m.rejected.Items {
-			docName := truncate(r.DocumentName, 30)
-			reason := truncate(r.Reason, 50)
-			b.WriteString(WarningStyle().Render(fmt.Sprintf("   • %s - %s", docName, reason)))
-			b.WriteString("\n")
-		}
-		b.WriteString("\n")
-	}
+	b.WriteString(m.renderRejectedBlock())
 
 	if m.expenses == nil || len(m.expenses.Items) == 0 {
 		b.WriteString(m.emptyList("No expenses found"))

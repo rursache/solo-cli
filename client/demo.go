@@ -119,6 +119,19 @@ func GetDemoRejectedExpenses() *RejectedExpenseResponse {
 	}
 }
 
+// GetDemoRejectedRevenues returns mock rejected revenue documents for demo mode
+func GetDemoRejectedRevenues() *RejectedRevenueResponse {
+	items := []RejectedRevenue{
+		{Id: 201, DocumentCode: "doc_rev456", DocumentName: "factura_client_scan.jpg", DocumentMimeType: "image/jpeg", Reason: "Documentul nu este lizibil, încarcă o copie clară", AllowResubmit: true, CreatedOn: "2025-01-20T09:00:00+02:00", RejectedOn: "2025-01-21T11:00:00+02:00", DaysPassed: 1},
+	}
+
+	total := len(items)
+	return &RejectedRevenueResponse{
+		Items:        items,
+		TotalResults: &total,
+	}
+}
+
 // GetDemoEFactura returns mock e-factura data for demo mode
 func GetDemoEFactura() *EFacturaListResponse {
 	items := []EFactura{

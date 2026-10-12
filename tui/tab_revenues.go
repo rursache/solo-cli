@@ -6,15 +6,16 @@ import (
 )
 
 func (m Model) renderRevenues() string {
+	warning := m.renderRejectedBlock()
 	if m.revenues == nil || len(m.revenues.Items) == 0 {
-		return m.emptyList("No revenues found")
+		return warning + m.emptyList("No revenues found")
 	}
 
 	// Fixed columns: Invoice(18) + Amount(12) + Curr(4) + separators
 	clientWidth := m.fillWidth(37, 20)
 	header := fmt.Sprintf("%-18s %12s %-4s %s", "Invoice", "Amount", "Curr", padTruncate("Client", clientWidth))
 
-	return m.renderList(len(m.revenues.Items), header, func(i int) string {
+	return warning + m.renderList(len(m.revenues.Items), header, func(i int) string {
 		r := m.revenues.Items[i]
 		focused := i == m.cursor
 		return fmt.Sprintf("%-18s %12.2f %-4s %s",

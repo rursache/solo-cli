@@ -62,6 +62,7 @@ func (m Model) fetchAll() tea.Cmd {
 		m.fetchRevenues,
 		m.fetchExpenses,
 		m.fetchRejected,
+		m.fetchRejectedRevenues,
 		m.fetchQueue,
 		m.fetchEFactura,
 	)
@@ -190,7 +191,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.viewportSize = 3
 		}
 		// Keep the cursor visible after a resize, using the effective
-		// per-tab viewport (the Expenses warning block shrinks it)
+		// per-tab viewport (the rejected warning block shrinks it)
 		size := m.tabViewportSize()
 		if m.cursor >= m.viewportOffset+size {
 			m.viewportOffset = m.cursor - size + 1
@@ -248,6 +249,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case rejectedMsg:
 		m.rejected = msg
+		m.checkLoadingDone()
+
+	case rejectedRevenuesMsg:
+		m.rejectedRevenues = msg
 		m.checkLoadingDone()
 
 	case queueMsg:
@@ -465,7 +470,7 @@ func (m *Model) removeQueued(id int) {
 }
 
 func (m *Model) checkLoadingDone() {
-	if m.summary != nil && m.revenues != nil && m.expenses != nil && m.rejected != nil && m.queue != nil && m.efactura != nil {
+	if m.summary != nil && m.revenues != nil && m.expenses != nil && m.rejected != nil && m.rejectedRevenues != nil && m.queue != nil && m.efactura != nil {
 		m.loading = false
 	}
 }

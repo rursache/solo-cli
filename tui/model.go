@@ -57,16 +57,17 @@ type Model struct {
 	maxYear   int // Current fiscal year, the upper bound for year switching
 
 	// Data
-	summary      *client.Summary
-	company      *client.CompanyInfo
-	caenCodes    []client.CAENCode
-	revenues     *client.RevenueListResponse
-	expenses     *client.ExpenseListResponse
-	rejected     *client.RejectedExpenseResponse
-	queue        *client.QueuedExpenseResponse
-	efactura     *client.EFacturaListResponse
-	taxBreakdown *taxes.TaxBreakdown
-	taxConfig    *config.TaxConfig
+	summary          *client.Summary
+	company          *client.CompanyInfo
+	caenCodes        []client.CAENCode
+	revenues         *client.RevenueListResponse
+	expenses         *client.ExpenseListResponse
+	rejected         *client.RejectedExpenseResponse
+	rejectedRevenues *client.RejectedRevenueResponse
+	queue            *client.QueuedExpenseResponse
+	efactura         *client.EFacturaListResponse
+	taxBreakdown     *taxes.TaxBreakdown
+	taxConfig        *config.TaxConfig
 
 	// UI state
 	loading        bool
@@ -100,6 +101,7 @@ type caenMsg []client.CAENCode
 type revenuesMsg *client.RevenueListResponse
 type expensesMsg *client.ExpenseListResponse
 type rejectedMsg *client.RejectedExpenseResponse
+type rejectedRevenuesMsg *client.RejectedRevenueResponse
 type queueMsg *client.QueuedExpenseResponse
 type efacturaMsg *client.EFacturaListResponse
 type errMsg error
@@ -173,13 +175,14 @@ func NewDemoModel() Model {
 		taxConfig:    taxCfg,
 		taxBreakdown: taxBreakdown,
 		// Pre-populate with demo data
-		summary:   demoSummary,
-		company:   client.GetDemoCompany(),
-		caenCodes: client.GetDemoCAENCodes(),
-		revenues:  client.GetDemoRevenues(),
-		expenses:  client.GetDemoExpenses(),
-		rejected:  client.GetDemoRejectedExpenses(),
-		queue:     client.GetDemoQueue(),
-		efactura:  client.GetDemoEFactura(),
+		summary:          demoSummary,
+		company:          client.GetDemoCompany(),
+		caenCodes:        client.GetDemoCAENCodes(),
+		revenues:         client.GetDemoRevenues(),
+		expenses:         client.GetDemoExpenses(),
+		rejected:         client.GetDemoRejectedExpenses(),
+		rejectedRevenues: client.GetDemoRejectedRevenues(),
+		queue:            client.GetDemoQueue(),
+		efactura:         client.GetDemoEFactura(),
 	}
 }

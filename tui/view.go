@@ -181,12 +181,9 @@ func (m Model) cell(s string, width int, focused bool) string {
 }
 
 // tabViewportSize returns the visible row count for the active tab. The
-// Expenses tab loses rows to the rejected warning block when present
+// Expenses and Revenues tabs lose rows to the rejected warning block
 func (m Model) tabViewportSize() int {
-	size := m.viewportSize
-	if m.activeTab == TabExpenses && m.rejected != nil && len(m.rejected.Items) > 0 {
-		size -= len(m.rejected.Items) + 2
-	}
+	size := m.viewportSize - m.rejectedBlockHeight()
 	if size < 1 {
 		return 1
 	}

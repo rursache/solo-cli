@@ -72,6 +72,15 @@ func (m Model) fetchRejected() tea.Msg {
 	return rejectedMsg(rejected)
 }
 
+func (m Model) fetchRejectedRevenues() tea.Msg {
+	rejected, err := m.client.ListRejectedRevenues(0, m.pageSize)
+	if err != nil {
+		// Optional like rejected expenses, an empty list hides the warning
+		return rejectedRevenuesMsg(&client.RejectedRevenueResponse{Items: []client.RejectedRevenue{}})
+	}
+	return rejectedRevenuesMsg(rejected)
+}
+
 func (m Model) fetchQueue() tea.Msg {
 	queue, err := m.client.ListQueuedExpenses(0, m.pageSize, m.searchFor(TabQueue))
 	if err != nil {
