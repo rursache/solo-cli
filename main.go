@@ -74,6 +74,10 @@ func main() {
 		runSubscription(cmdArgs)
 	case "referral":
 		runReferral(cmdArgs)
+	case "clients", "customers":
+		runClients(cmdArgs)
+	case "rates":
+		runRates(cmdArgs)
 	case "setup-skills":
 		runSetupSkills()
 	case "tui":
@@ -119,6 +123,8 @@ Commands:
                   Download the cash flow register PDF (registrul de incasari si plati)
   subscription    Show the SOLO.ro subscription, changes stay on the web
   referral        Show the referral link, prizes and rewards
+  clients [text]  List clients, optionally filtered by a search text (alias: customers)
+  rates [date]    Show BNR exchange rates for a day (YYYY-MM-DD, default today)
   setup-skills    Install AI skills for Claude Code and other agents
   tui             Start interactive TUI (default when no command)
   demo            Start TUI with demo data (for screenshots)

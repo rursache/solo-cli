@@ -367,3 +367,51 @@ func runReferral(args []string) {
 		}
 	}
 }
+
+func runClients(args []string) {
+	flags, err := parseCmdFlags(args)
+	if err != nil {
+		exitErr(err)
+	}
+	search := strings.Join(flags.Args, " ")
+	c, cfg := setupClient()
+	customers, err := c.ListAllCustomers(cfg.PageSize, search)
+	if err != nil {
+		exitErr(err)
+	}
+	if len(customers) == 0 {
+		fmt.Fprintln(os.Stderr, "No clients found")
+		return
+	}
+	for _, cu := range customers {
+		fmt.Printf("%d\t%s\t%s\t%s\t%s\t%s\n", cu.CustomerId, cu.Name, cu.Code1, cu.Code2, cu.Email, cu.Phone)
+	}
+}
+
+func runRates(args []string) {
+	day := time.Now()
+	switch len(args) {
+	case 0:
+	case 1:
+		d, err := time.ParseInLocation("2006-01-02", args[0], time.Local)
+		if err != nil {
+			exitErr(fmt.Errorf("invalid date %q, use YYYY-MM-DD", args[0]))
+		}
+		day = d
+	default:
+		exitErr(fmt.Errorf("too many arguments\nUsage: solo-cli rates [YYYY-MM-DD]"))
+	}
+
+	c, _ := setupClient()
+	rates, err := c.GetExchangeRates(day)
+	if err != nil {
+		exitErr(err)
+	}
+	if len(rates) == 0 {
+		fmt.Fprintf(os.Stderr, "No exchange rates for %s\n", day.Format("2006-01-02"))
+		return
+	}
+	for _, r := range rates {
+		fmt.Printf("%s\t%.4f\t%s\n", r.CurrencyCode(), r.RateValue, dateOnly(r.RateDate))
+	}
+}

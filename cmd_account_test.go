@@ -270,3 +270,25 @@ func TestSubscriptionAndReferral(t *testing.T) {
 		"subscription": "Plan: Test Plan (yearly)\nStatus: Paused\nPrice: 1000.00 RON/year\nNext billing: 2027-01-01\nCard: Visa ending in 0000, expires 08/2099\nOverdue: 100.00 RON (2 payments)\nHosted headquarters: yes\nManage: " + api.server.URL + "/settings/subscription\n",
 	})
 }
+
+func TestClientsAndRates(t *testing.T) {
+	api, rateBodies := newAccountMock(t)
+	e := newEnv(t, "good-password")
+	dir := t.TempDir()
+
+	expectOutputs(t, e, api, dir, map[string]string{
+		"clients":          "7\tClient SRL\tRO100\tJ40/1/2020\tclient@example.com\t\n",
+		"rates|2026-01-05": "EUR\t5.0000\t2026-01-05\n",
+	})
+	if len(*rateBodies) != 1 || (*rateBodies)[0] != "2026-01-05T00:00:00+02:00" {
+		t.Errorf("rates body = %q", *rateBodies)
+	}
+
+	out, errOut, code := e.runIn(t, api, dir, "clients", "nobody")
+	if code != 0 || out != "" || !strings.Contains(errOut, "No clients found") {
+		t.Errorf("empty clients: %d %q %q", code, out, errOut)
+	}
+	if _, errOut, code := e.runIn(t, api, dir, "rates", "05.01.2026"); code != 1 || !strings.Contains(errOut, "YYYY-MM-DD") {
+		t.Errorf("rates with a bad date: %d %q", code, errOut)
+	}
+}

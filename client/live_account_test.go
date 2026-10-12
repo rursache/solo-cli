@@ -152,3 +152,44 @@ func TestLiveSchemaReferral(t *testing.T) {
 	assertSchema(t, rawGet(t, c, "/api/referral/campaign", "/referral"), reflect.TypeOf(ReferralCampaign{}), "referralCampaign")
 	assertSchema(t, rawGet(t, c, "/api/referral/rewards", "/referral"), reflect.TypeOf(ReferralRewards{}), "referralRewards")
 }
+
+func TestLiveSchemaCustomers(t *testing.T) {
+	c := liveClient(t)
+
+	items := fetchRawList(t, c, "/proxy/accounting/customers/list", "/clients")
+	if len(items) == 0 {
+		t.Skip("no clients on account")
+	}
+	assertSchema(t, items[0], reflect.TypeOf(Customer{}), "customer")
+
+	none, err := c.ListAllCustomers(10, "zzxqjwy-no-such-client")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(none) != 0 {
+		t.Errorf("nonsense client search returned %d items", len(none))
+	}
+}
+
+func TestLiveExchangeRates(t *testing.T) {
+	c := liveClient(t)
+
+	var raw []json.RawMessage
+	if err := c.doJSON("POST", "/proxy/accounting/utility/exchange-rates", "/draft-invoices", exchangeRateDate(time.Now()), &raw); err != nil {
+		t.Fatal(err)
+	}
+	if len(raw) == 0 {
+		t.Fatal("no exchange rates")
+	}
+	assertSchema(t, raw[0], reflect.TypeOf(ExchangeRate{}), "exchangeRate")
+
+	rates, err := c.GetExchangeRates(time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range rates {
+		if r.CurrencyCode() == "" || r.RateValue <= 0 {
+			t.Errorf("bad rate %+v", r)
+		}
+	}
+}
