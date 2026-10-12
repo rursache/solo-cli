@@ -21,16 +21,16 @@ type ThresholdResult struct {
 
 // TaxBreakdown holds the full tax calculation result
 type TaxBreakdown struct {
-	NetIncome       float64
+	NetIncome        float64
 	SalariuMinimBrut float64
-	SalariesCount   float64 // net income expressed in multiples of SMB
+	SalariesCount    float64 // net income expressed in multiples of SMB
 
 	CAS       ThresholdResult
 	CASS      ThresholdResult
 	IncomeTax float64 // 10% of (net income - CAS - CASS)
 
-	TotalTaxes float64
-	NetAfterTax float64
+	TotalTaxes    float64
+	NetAfterTax   float64
 	EffectiveRate float64 // total taxes / net income * 100
 }
 
