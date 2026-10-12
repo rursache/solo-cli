@@ -148,7 +148,7 @@ func (d *TaxDeclarationDashboard) FilingYear() int {
 // Deadline is 25 May of the filing year, Bucharest time. Filing and payment
 // are due by the end of that day
 func (d *TaxDeclarationDashboard) Deadline() time.Time {
-	return time.Date(d.FilingYear(), time.May, 25, 0, 0, 0, 0, bucharest())
+	return time.Date(d.FilingYear(), time.May, 25, 0, 0, 0, 0, deadlineZone())
 }
 
 // HasTaxes is false for unfiled years, whose summary carries only nulls
@@ -156,11 +156,11 @@ func (d *TaxDeclarationDashboard) HasTaxes() bool {
 	return d.TaxesSummary != nil && d.TaxesSummary.HasTaxes()
 }
 
-func bucharest() *time.Location {
-	if loc, err := time.LoadLocation("Europe/Bucharest"); err == nil {
-		return loc
+// deadlineZone falls back to summer time (UTC+3), which 25 May always is
+func deadlineZone() *time.Location {
+	if bucharest != nil {
+		return bucharest
 	}
-	// No tzdata on this system, May is always summer time (UTC+3)
 	return time.FixedZone("EEST", 3*3600)
 }
 

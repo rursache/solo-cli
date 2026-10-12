@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"slices"
 	"time"
-	_ "time/tzdata" // Europe/Bucharest must resolve on systems without zoneinfo
 )
 
 // InvoiceDetail is an issued invoice with its line items
@@ -250,14 +249,6 @@ func invoiceActionError(err error) error {
 	}
 	return errors.New(invoiceChangeFailed)
 }
-
-var bucharest = func() *time.Location {
-	loc, err := time.LoadLocation("Europe/Bucharest")
-	if err != nil {
-		return nil
-	}
-	return loc
-}()
 
 // InvoiceAPIDate formats the civil date of day as Bucharest midnight with its
 // offset, the format the invoice endpoints expect. A UTC timestamp could land
