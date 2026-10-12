@@ -242,3 +242,21 @@ func TestReportCommand(t *testing.T) {
 		t.Errorf("report with a bad year: %d %q", code, errOut)
 	}
 }
+
+func TestCompanyExtras(t *testing.T) {
+	api, _ := newAccountMock(t)
+	e := newEnv(t, "good-password")
+
+	out, _, code := e.runIn(t, api, t.TempDir(), "company")
+	wantTail := "VIES status: VatRegistered\nVIES code: RO11111111\nBank: Test Bank - RO00TEST0000000000000001 (RON)\nBank: Custom Bank - RO00CUST0000000000000002 (EUR)\n"
+	if code != 0 || !strings.HasPrefix(out, "Name: Test PFA\n") || !strings.HasSuffix(out, "CAEN: 6202 - IT consultancy\n"+wantTail) {
+		t.Errorf("company output: %q", out)
+	}
+
+	// The base mock has no VIES or bank endpoints, company must still work
+	base := newMockAPI(t)
+	out, errOut, code := e.run(t, base, "company")
+	if code != 0 || !strings.HasSuffix(out, "CAEN: 6202 - IT consultancy\n") || !strings.Contains(errOut, "Warning: failed to get VIES profile") {
+		t.Errorf("company without extras: %d %q %q", code, out, errOut)
+	}
+}

@@ -106,3 +106,26 @@ func TestLiveCashflowReport(t *testing.T) {
 		t.Errorf("cash flow register is %s (.%s), want a PDF", f.ContentType, f.Extension())
 	}
 }
+
+func TestLiveSchemaCompanyExtras(t *testing.T) {
+	c, id := liveCompany(t)
+
+	var env struct {
+		Ok   bool
+		Data json.RawMessage
+	}
+	json.Unmarshal(rawGet(t, c, "/proxy/accounting/company/vies-profile/company_"+id, "/settings"), &env)
+	if !env.Ok {
+		t.Log("VIES profile unavailable (Ok=false)")
+	} else {
+		assertSchema(t, env.Data, reflect.TypeOf(ViesProfile{}), "vies")
+	}
+
+	var accounts []json.RawMessage
+	json.Unmarshal(rawGet(t, c, "/proxy/accounting/bank-accounts/company_"+id, "/settings"), &accounts)
+	if len(accounts) > 0 {
+		assertSchema(t, accounts[0], reflect.TypeOf(BankAccount{}), "bankAccount")
+	} else {
+		t.Log("no bank accounts, item schema not checked")
+	}
+}

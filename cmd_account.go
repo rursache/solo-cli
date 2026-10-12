@@ -212,3 +212,32 @@ func runReport(args []string) {
 		exitErr(err)
 	}
 }
+
+// printCompanyExtras appends the VIES state and the bank accounts to the
+// company output. Both are best effort, a failure only warns on stderr
+func printCompanyExtras(c *client.Client) {
+	if vies, err := c.GetViesProfile(c.CompanyID); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
+	} else {
+		fmt.Printf("VIES status: %s\n", vies.ViesProfileStatus)
+		if code := strings.TrimSpace(strOrEmpty(vies.Code3)); code != "" {
+			fmt.Printf("VIES code: %s\n", code)
+		}
+		if w := vies.ViesWorkflowStatus; w != "" && !strings.EqualFold(w, "None") {
+			fmt.Printf("VIES request: %s\n", w)
+		}
+	}
+
+	accounts, err := c.ListBankAccounts(c.CompanyID)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
+		return
+	}
+	for _, a := range accounts {
+		line := fmt.Sprintf("Bank: %s - %s", a.DisplayName(), a.IBAN)
+		if cur := a.CurrencyCode(); cur != "" {
+			line += " (" + cur + ")"
+		}
+		fmt.Println(line)
+	}
+}

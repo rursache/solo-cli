@@ -155,6 +155,7 @@ func runCompany(c *client.Client) {
 			fmt.Printf("CAEN: %s - %s%s\n", code.Code, code.Name, marker)
 		}
 	}
+	printCompanyExtras(c)
 }
 
 func runTaxes(c *client.Client, args []string) {
