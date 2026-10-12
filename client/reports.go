@@ -25,5 +25,5 @@ func (c *Client) DownloadCashflowReport(companyID string, year int) (*Downloaded
 		return nil, fmt.Errorf("no cash flow register for %d, available years are %d to %d", year, first, last)
 	}
 	path := fmt.Sprintf("/proxy/accounting/reports/cashflow-report/company_%s/%d", companyID, year)
-	return c.downloadNonEmpty(path, "/documents/reports", "cash flow register")
+	return c.downloadNamed(path, "/documents/reports", "cash flow register")
 }

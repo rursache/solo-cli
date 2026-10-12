@@ -29,20 +29,11 @@ type Currency struct {
 
 // LocalAmount represents amount in local currency
 type LocalAmount struct {
-	Amount       float64              `json:"Amount"`
-	VAT          float64              `json:"VAT"`
-	Total        float64              `json:"Total"`
-	Currency     Currency             `json:"Currency"`
-	ExchangeRate *RevenueExchangeRate `json:"ExchangeRate"`
-}
-
-// RevenueExchangeRate is the BNR rate a foreign currency invoice was
-// converted with
-type RevenueExchangeRate struct {
-	FromCurrency Currency `json:"FromCurrency"`
-	ToCurrency   Currency `json:"ToCurrency"`
-	RateValue    float64  `json:"RateValue"`
-	RateDate     *string  `json:"RateDate"`
+	Amount       float64       `json:"Amount"`
+	VAT          float64       `json:"VAT"`
+	Total        float64       `json:"Total"`
+	Currency     Currency      `json:"Currency"`
+	ExchangeRate *ExchangeRate `json:"ExchangeRate"` // set on foreign currency invoices
 }
 
 // InvoiceStatus represents invoice status

@@ -88,7 +88,7 @@ func (c *Client) DownloadDocument(uniqueCode string) (*DownloadedFile, error) {
 	if err != nil {
 		return nil, err
 	}
-	return c.downloadNonEmpty("/api/documents/download/"+code, "/documents", "document")
+	return c.downloadNamed("/api/documents/download/"+code, "/documents", "document")
 }
 
 // DownloadFinancialDocument fetches the original file of an expense, queued
@@ -98,18 +98,13 @@ func (c *Client) DownloadFinancialDocument(documentCode string) (*DownloadedFile
 	if err != nil {
 		return nil, err
 	}
-	return c.downloadNonEmpty("/api/financial-documents/download/"+code, "/expenses", "document")
+	return c.downloadNamed("/api/financial-documents/download/"+code, "/expenses", "document")
 }
 
-// downloadNonEmpty is download plus a check for the empty 200 body SOLO.ro
-// answers with for an unknown document code
-func (c *Client) downloadNonEmpty(path, referer, what string) (*DownloadedFile, error) {
+func (c *Client) downloadNamed(path, referer, what string) (*DownloadedFile, error) {
 	f, err := c.download(path, referer)
 	if err != nil {
 		return nil, fmt.Errorf("failed to download %s: %w", what, err)
-	}
-	if len(f.Data) == 0 {
-		return nil, fmt.Errorf("failed to download %s: SOLO.ro sent an empty file, check the code", what)
 	}
 	return f, nil
 }

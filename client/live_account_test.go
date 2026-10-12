@@ -174,8 +174,12 @@ func TestLiveSchemaCustomers(t *testing.T) {
 func TestLiveExchangeRates(t *testing.T) {
 	c := liveClient(t)
 
+	date, err := InvoiceAPIDate(time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
 	var raw []json.RawMessage
-	if err := c.doJSON("POST", "/proxy/accounting/utility/exchange-rates", "/draft-invoices", exchangeRateDate(time.Now()), &raw); err != nil {
+	if err := c.doJSON("POST", "/proxy/accounting/utility/exchange-rates", "/draft-invoices", date, &raw); err != nil {
 		t.Fatal(err)
 	}
 	if len(raw) == 0 {

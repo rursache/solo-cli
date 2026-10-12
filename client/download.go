@@ -46,6 +46,10 @@ func (c *Client) download(path, referer string) (*DownloadedFile, error) {
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("download failed with status %d", resp.StatusCode)
 	}
+	if len(data) == 0 {
+		// SOLO.ro answers some unknown document codes with an empty 200
+		return nil, fmt.Errorf("SOLO.ro sent an empty file, check the code")
+	}
 	if len(data) > maxDownloadBytes {
 		return nil, fmt.Errorf("download larger than %d MB", maxDownloadBytes>>20)
 	}
