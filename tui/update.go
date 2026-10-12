@@ -59,6 +59,8 @@ func (m Model) fetchAll() tea.Cmd {
 		m.fetchSummary,
 		m.fetchCompany,
 		m.fetchCAEN,
+		m.fetchAlerts,
+		m.fetchDeclaration,
 		m.fetchRevenues,
 		m.fetchExpenses,
 		m.fetchRejected,
@@ -238,6 +240,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case caenMsg:
 		m.caenCodes = msg
 		// CAEN codes are optional, don't block loading
+
+	case alertsMsg:
+		m.alerts = msg
+
+	case declarationMsg:
+		m.declaration = msg
 
 	case revenuesMsg:
 		m.revenues = msg

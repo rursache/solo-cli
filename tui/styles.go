@@ -101,6 +101,12 @@ var (
 	warningStyle   = lipgloss.NewStyle().Foreground(warningColor).Bold(true)
 	dangerStyle    = lipgloss.NewStyle().Foreground(dangerColor).Bold(true)
 
+	// Notices panel next to the dashboard summary box
+	NoticesBoxStyle = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(mutedColor).
+			Padding(1, 2)
+
 	// Compact box style (no margin) for taxes tab
 	CompactBoxStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).

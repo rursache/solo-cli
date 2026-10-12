@@ -132,6 +132,27 @@ func GetDemoRejectedRevenues() *RejectedRevenueResponse {
 	}
 }
 
+// GetDemoAlerts returns mock dashboard alerts for demo mode
+func GetDemoAlerts() *Alerts {
+	return &Alerts{
+		VAT:             &VATAlertStatus{Status: "DangerPending", CriticalThresholdValue: 395000},
+		CAEN:            &CAENAlertStatus{Status: "Requested"},
+		PowerOfAttorney: &PowerOfAttorneyStatus{Status: "NotAvailable"},
+	}
+}
+
+// GetDemoTaxDeclaration returns a mock Declaratia Unica status for the last
+// fiscal year in demo mode
+func GetDemoTaxDeclaration() *TaxDeclarationDashboard {
+	year := time.Now().Year() - 1
+	return &TaxDeclarationDashboard{
+		FiscalYear:          year,
+		ReportingFiscalYear: year + 1,
+		DeclarationStatus:   DeclarationAutoFiledOk,
+		LastCompletedOn:     fmt.Sprintf("%d-03-15", year+1),
+	}
+}
+
 // GetDemoEFactura returns mock e-factura data for demo mode
 func GetDemoEFactura() *EFacturaListResponse {
 	items := []EFactura{

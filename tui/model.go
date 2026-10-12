@@ -60,6 +60,8 @@ type Model struct {
 	summary          *client.Summary
 	company          *client.CompanyInfo
 	caenCodes        []client.CAENCode
+	alerts           []client.Alert                  // Active dashboard alerts, best effort
+	declaration      *client.TaxDeclarationDashboard // Last fiscal year, nil hides it
 	revenues         *client.RevenueListResponse
 	expenses         *client.ExpenseListResponse
 	rejected         *client.RejectedExpenseResponse
@@ -98,6 +100,8 @@ type Model struct {
 type summaryMsg *client.Summary
 type companyMsg *client.CompanyInfo
 type caenMsg []client.CAENCode
+type alertsMsg []client.Alert
+type declarationMsg *client.TaxDeclarationDashboard
 type revenuesMsg *client.RevenueListResponse
 type expensesMsg *client.ExpenseListResponse
 type rejectedMsg *client.RejectedExpenseResponse
@@ -178,6 +182,8 @@ func NewDemoModel() Model {
 		summary:          demoSummary,
 		company:          client.GetDemoCompany(),
 		caenCodes:        client.GetDemoCAENCodes(),
+		alerts:           client.GetDemoAlerts().Active(),
+		declaration:      client.GetDemoTaxDeclaration(),
 		revenues:         client.GetDemoRevenues(),
 		expenses:         client.GetDemoExpenses(),
 		rejected:         client.GetDemoRejectedExpenses(),

@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"io"
-	"math"
 	"os"
 	"time"
 
@@ -59,28 +58,8 @@ func writeDeclaration(w io.Writer, d *client.TaxDeclarationDashboard, now time.T
 	}
 	fmt.Fprintln(w)
 
-	fmt.Fprintf(w, "Deadline:             %s\n", deadlineText(d.Deadline(), now))
+	fmt.Fprintf(w, "Deadline:             %s\n", client.DeadlineText(d.Deadline(), now))
 	fmt.Fprintf(w, "File or review at %s\n", client.TaxDeclarationWebURL)
-}
-
-// deadlineText formats the filing deadline with the days left, counted in
-// the deadline's time zone
-func deadlineText(deadline, now time.Time) string {
-	date := deadline.Format("2 January 2006")
-	loc := deadline.Location()
-	n := now.In(loc)
-	today := time.Date(n.Year(), n.Month(), n.Day(), 0, 0, 0, 0, loc)
-	day := time.Date(deadline.Year(), deadline.Month(), deadline.Day(), 0, 0, 0, 0, loc)
-	days := int(math.Round(day.Sub(today).Hours() / 24))
-	switch {
-	case days < 0:
-		return date + " (passed)"
-	case days == 0:
-		return date + " (today)"
-	case days == 1:
-		return date + " (tomorrow)"
-	}
-	return fmt.Sprintf("%s (in %d days)", date, days)
 }
 
 func valueOrZero(p *float64) float64 {

@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"time"
+
 	"solo-cli/client"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -36,6 +38,25 @@ func (m Model) fetchCAEN() tea.Msg {
 		return caenMsg(nil)
 	}
 	return caenMsg(codes)
+}
+
+// fetchAlerts loads the dashboard alerts. Sources that fail are left out
+func (m Model) fetchAlerts() tea.Msg {
+	return alertsMsg(m.client.GetAlerts().Active())
+}
+
+// fetchDeclaration loads the Declaratia Unica status of the last fiscal
+// year, the one filed this year. A failure hides it
+func (m Model) fetchDeclaration() tea.Msg {
+	year := time.Now().Year() - 1
+	d, err := m.client.GetTaxDeclarationDashboard(year)
+	if err != nil {
+		return declarationMsg(nil)
+	}
+	if d.FiscalYear == 0 {
+		d.FiscalYear = year
+	}
+	return declarationMsg(d)
 }
 
 // searchFor returns the active search query when tab is the searched tab.

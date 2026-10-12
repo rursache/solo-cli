@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"solo-cli/client"
 
@@ -1114,5 +1115,111 @@ func TestRejectedWarningBlocks(t *testing.T) {
 	}
 	if !strings.Contains(lines[searchBarRowY+want], "Search:") {
 		t.Errorf("search bar not right below the capped block: %q", lines[searchBarRowY+want])
+	}
+}
+
+// The dashboard shows the Declaratia Unica status of the last fiscal year
+// and the active alerts next to the summary box, without growing the view
+func TestDashboardNotices(t *testing.T) {
+	declYear := fmt.Sprintf("Declaratia Unica %d", time.Now().Year()-1)
+	for _, size := range []struct{ w, h int }{{120, 40}, {100, 28}} {
+		m := NewDemoModel()
+		updated, _ := m.Update(tea.WindowSizeMsg{Width: size.w, Height: size.h})
+		m = updated.(Model)
+
+		view := m.View()
+		for _, want := range []string{declYear, "Filed at ANAF by SOLO", "Deadline: 25 May", "● Close to the VAT threshold", "● CAEN code update"} {
+			if !strings.Contains(view, want) {
+				t.Errorf("%dx%d: dashboard missing %q", size.w, size.h, want)
+			}
+		}
+		lines := strings.Split(view, "\n")
+		if len(lines) != size.h {
+			t.Errorf("%dx%d: view has %d lines, want %d", size.w, size.h, len(lines), size.h)
+		}
+		for _, line := range lines {
+			if w := lipgloss.Width(line); w > size.w {
+				t.Errorf("%dx%d: line exceeds width (%d): %q", size.w, size.h, w, stripANSI(line))
+			}
+		}
+		// Side by side: the panel heading shares the year row
+		for _, line := range lines {
+			plain := stripANSI(line)
+			if strings.Contains(plain, "Year:") && !strings.Contains(plain, declYear) {
+				t.Errorf("%dx%d: notices panel not beside the summary box: %q", size.w, size.h, plain)
+			}
+		}
+	}
+}
+
+// Narrow terminals stack the notices under the summary box, and drop them
+// when that would push the view past the terminal height
+func TestDashboardNoticesNarrow(t *testing.T) {
+	m := NewDemoModel()
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 50, Height: 40})
+	m = updated.(Model)
+	view := m.View()
+	if !strings.Contains(view, "● Close to the VAT") {
+		t.Fatal("stacked notices missing on a tall narrow terminal")
+	}
+	for _, line := range strings.Split(view, "\n") {
+		plain := stripANSI(line)
+		if strings.Contains(plain, "Year:") && strings.Contains(plain, "Declaratia") {
+			t.Error("notices must stack below the box when narrow")
+		}
+		if strings.Contains(plain, "●") && lipgloss.Width(line) > 50 {
+			t.Errorf("alert line exceeds width: %q", plain)
+		}
+	}
+
+	updated, _ = m.Update(tea.WindowSizeMsg{Width: 50, Height: 28})
+	m = updated.(Model)
+	view = m.View()
+	if strings.Contains(view, "Declaratia") {
+		t.Error("stacked notices must be dropped when they do not fit")
+	}
+	if lines := strings.Split(view, "\n"); len(lines) != 28 {
+		t.Errorf("view has %d lines, want 28", len(lines))
+	}
+}
+
+// Failed or empty alert and declaration fetches hide the panel instead of
+// erroring the TUI, and new results replace the old ones
+func TestDashboardNoticesBestEffort(t *testing.T) {
+	m := NewDemoModel()
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	m = updated.(Model)
+
+	updated, _ = m.Update(alertsMsg(nil))
+	m = updated.(Model)
+	updated, _ = m.Update(declarationMsg(nil))
+	m = updated.(Model)
+	if m.err != nil {
+		t.Fatalf("missing notices set an error: %v", m.err)
+	}
+	view := m.View()
+	if strings.Contains(view, "Declaratia") || strings.Contains(view, "●") {
+		t.Error("notices panel shown without alerts or declaration")
+	}
+
+	// Only alerts: no declaration lines, no leading blank separator
+	critical := (&client.PowerOfAttorneyStatus{Status: "Pending", RejectionReasonCode: "BadId"}).Alert()
+	updated, _ = m.Update(alertsMsg([]client.Alert{*critical}))
+	m = updated.(Model)
+	if got := m.renderNotices(60); !strings.HasPrefix(stripANSI(got), "● Power of attorney rejected") {
+		t.Errorf("alerts only panel = %q", stripANSI(got))
+	}
+
+	// A declaration without a status is hidden like a failed fetch
+	updated, _ = m.Update(declarationMsg(&client.TaxDeclarationDashboard{FiscalYear: 2025}))
+	m = updated.(Model)
+	if strings.Contains(m.View(), "Declaratia") {
+		t.Error("declaration without a status must stay hidden")
+	}
+	updated, _ = m.Update(declarationMsg(&client.TaxDeclarationDashboard{FiscalYear: 2025, DeclarationStatus: client.DeclarationNone}))
+	m = updated.(Model)
+	view = m.View()
+	if !strings.Contains(view, "Declaratia Unica 2025") || !strings.Contains(view, "Not started") || !strings.Contains(view, "25 May 2026") {
+		t.Error("declaration status line missing")
 	}
 }

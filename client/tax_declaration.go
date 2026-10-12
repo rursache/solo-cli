@@ -3,6 +3,7 @@ package client
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"strings"
 	"time"
 )
@@ -149,6 +150,26 @@ func (d *TaxDeclarationDashboard) FilingYear() int {
 // are due by the end of that day
 func (d *TaxDeclarationDashboard) Deadline() time.Time {
 	return time.Date(d.FilingYear(), time.May, 25, 0, 0, 0, 0, deadlineZone())
+}
+
+// DeadlineText formats the filing deadline with the days left, counted in
+// the deadline's time zone
+func DeadlineText(deadline, now time.Time) string {
+	date := deadline.Format("2 January 2006")
+	loc := deadline.Location()
+	n := now.In(loc)
+	today := time.Date(n.Year(), n.Month(), n.Day(), 0, 0, 0, 0, loc)
+	day := time.Date(deadline.Year(), deadline.Month(), deadline.Day(), 0, 0, 0, 0, loc)
+	days := int(math.Round(day.Sub(today).Hours() / 24))
+	switch {
+	case days < 0:
+		return date + " (passed)"
+	case days == 0:
+		return date + " (today)"
+	case days == 1:
+		return date + " (tomorrow)"
+	}
+	return fmt.Sprintf("%s (in %d days)", date, days)
 }
 
 // HasTaxes is false for unfiled years, whose summary carries only nulls

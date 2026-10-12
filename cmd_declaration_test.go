@@ -78,8 +78,8 @@ func TestDeadlineText(t *testing.T) {
 		{time.Date(2026, 5, 26, 0, 0, 1, 0, loc), "25 May 2026 (passed)"},
 		{time.Date(2026, 1, 1, 0, 0, 0, 0, loc), "25 May 2026 (in 144 days)"},
 	} {
-		if got := deadlineText(deadline, tc.now); got != tc.want {
-			t.Errorf("deadlineText(%v) = %q, want %q", tc.now, got, tc.want)
+		if got := client.DeadlineText(deadline, tc.now); got != tc.want {
+			t.Errorf("DeadlineText(%v) = %q, want %q", tc.now, got, tc.want)
 		}
 	}
 }
