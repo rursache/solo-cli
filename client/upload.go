@@ -111,7 +111,7 @@ func (c *Client) uploadFile(uploadID, filePath string) (string, error) {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("upload failed with status %d: %s", resp.StatusCode, string(body))
+		return "", fmt.Errorf("upload failed with status %d: %s", resp.StatusCode, cleanString(string(body)))
 	}
 
 	// Response is quoted string, e.g. "filename.pdf"

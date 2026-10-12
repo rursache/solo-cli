@@ -423,3 +423,18 @@ func TestLoadCookiesWithoutAuthCookie(t *testing.T) {
 		t.Errorf("LoadCookies without solo_auth = (%v, %v), want (false, nil)", loaded, err)
 	}
 }
+
+func TestUploadErrorBodyIsCleaned(t *testing.T) {
+	c := newTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("\x1b[2J\x1b[31mboom"))
+	}))
+	tmpFile := filepath.Join(t.TempDir(), "receipt.pdf")
+	if err := os.WriteFile(tmpFile, []byte("%PDF-1.4 fake"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := c.UploadDocument(tmpFile, UploadRevenues)
+	if err == nil || strings.ContainsRune(err.Error(), 0x1b) || !strings.Contains(err.Error(), "boom") {
+		t.Errorf("upload error = %q", err)
+	}
+}
