@@ -47,7 +47,7 @@ func main() {
 	case "summary":
 		withClientArgs(runSummary, cmdArgs)
 	case "revenues", "revenue", "rev":
-		withClient(runRevenues)
+		withClientArgs(runRevenues, cmdArgs)
 	case "expenses", "expense", "exp":
 		withClient(runExpenses)
 	case "queue", "q":
@@ -84,6 +84,7 @@ Commands:
   summary [year]  Show account summary (year, revenues, expenses, taxes)
   taxes [year]    Show tax breakdown with thresholds (alias: tax)
   revenues        List revenue invoices (aliases: revenue, rev)
+                  Subcommands: queue, rejected, delete <id>
   expenses        List expenses (aliases: expense, exp)
   queue           List expense queue (alias: q). Subcommands: delete <id>
   efactura        List e-Factura documents (aliases: einvoice, ei)

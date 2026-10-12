@@ -37,7 +37,13 @@ func runSummary(c *client.Client, args []string) {
 	}
 }
 
-func runRevenues(c *client.Client) {
+func runRevenues(c *client.Client, args []string) {
+	if len(args) > 0 {
+		runRevenueDocuments(c, args)
+		return
+	}
+	warnRejectedRevenues(c)
+
 	revenues, err := c.ListRevenues(0, 100, "")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
