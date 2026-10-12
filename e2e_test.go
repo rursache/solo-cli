@@ -95,8 +95,8 @@ func newMockAPI(t *testing.T) *mockAPI {
 	})
 	mux.HandleFunc("/proxy/accounting/revenues/list", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, `{"Items":[
-			{"SerialCode":"INV-001","ClientName":"ACME Corp","Total":1000.50,"IsPaid":true,"Currency":{"ShortName":"RON"}},
-			{"SerialCode":"INV-002","ClientName":"Globex","Total":250.25,"IsPaid":false,"Currency":{"ShortName":"EUR"}}
+			{"UniqueCode":"inv_001","SerialCode":"INV-001","ClientName":"ACME Corp","Total":1000.50,"IsPaid":true,"Currency":{"ShortName":"RON"}},
+			{"UniqueCode":"inv_002","SerialCode":"INV-002","ClientName":"Globex","Total":250.25,"IsPaid":false,"Currency":{"ShortName":"EUR"}}
 		]}`)
 	})
 	mux.HandleFunc("/proxy/accounting/expenses/list", func(w http.ResponseWriter, r *http.Request) {
@@ -368,7 +368,7 @@ func TestE2EListCommands(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("revenues exit %d", code)
 	}
-	wantRev := "INV-001\t1000.50 RON\tPAID\tACME Corp\nINV-002\t250.25 EUR\tUNPAID\tGlobex\n"
+	wantRev := "INV-001\t1000.50 RON\tPAID\tACME Corp\tinv_001\nINV-002\t250.25 EUR\tUNPAID\tGlobex\tinv_002\n"
 	if out != wantRev {
 		t.Errorf("revenues output:\n%q\nwant:\n%q", out, wantRev)
 	}

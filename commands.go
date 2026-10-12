@@ -54,7 +54,7 @@ func runRevenues(c *client.Client, args []string) {
 		if r.IsPaid {
 			paid = "PAID"
 		}
-		fmt.Printf("%s\t%.2f %s\t%s\t%s\n", r.SerialCode, r.Total, r.Currency.ShortName, paid, r.ClientName)
+		fmt.Printf("%s\t%.2f %s\t%s\t%s\t%s\n", r.SerialCode, r.Total, r.Currency.ShortName, paid, r.ClientName, r.UniqueCode)
 	}
 }
 

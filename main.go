@@ -48,6 +48,8 @@ func main() {
 		withClientArgs(runSummary, cmdArgs)
 	case "revenues", "revenue", "rev":
 		withClientArgs(runRevenues, cmdArgs)
+	case "invoice", "inv":
+		runInvoice(cmdArgs)
 	case "expenses", "expense", "exp":
 		withClient(runExpenses)
 	case "queue", "q":
@@ -83,8 +85,11 @@ Usage:
 Commands:
   summary [year]  Show account summary (year, revenues, expenses, taxes)
   taxes [year]    Show tax breakdown with thresholds (alias: tax)
-  revenues        List revenue invoices (aliases: revenue, rev)
+  revenues        List revenue invoices, the last column is the invoice code (aliases: revenue, rev)
                   Subcommands: queue, rejected, delete <id>
+  invoice <code>  Show an invoice with its lines (alias: inv). Subcommands:
+                  paid <code> [YYYY-MM-DD], unpaid <code>, delete <code>,
+                  download <code> [--xml | --original] [-o path] [-f]
   expenses        List expenses (aliases: expense, exp)
   queue           List expense queue (alias: q). Subcommands: delete <id>
   efactura        List e-Factura documents (aliases: einvoice, ei)
@@ -109,6 +114,8 @@ Examples:
   solo-cli upload invoice.pdf       # Upload expense document
   solo-cli queue delete 123         # Delete queued item
   solo-cli upload -r invoice.pdf    # Upload revenue document
+  solo-cli invoice paid <code> -y   # Mark an invoice paid today
+  solo-cli invoice download <code>  # Save the invoice PDF
   solo-cli -c ~/my-config.json rev  # Use custom config
   solo-cli expenses | grep -i "food"
 
