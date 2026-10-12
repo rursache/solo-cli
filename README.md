@@ -159,6 +159,7 @@ solo-cli efactura settings set --delay 0 --contact-info yes -y
 
 # Expenses
 solo-cli expenses                   # List expenses (alias: exp)
+solo-cli expenses rejected          # Rejected expense documents with their IDs
 solo-cli expenses download <code>   # Save an expense document
 solo-cli queue                      # Expense queue (alias: q)
 solo-cli queue delete 123 -y        # Delete a queued or rejected expense document

@@ -39,11 +39,13 @@ func lastColumn(code string) string {
 	return "\t" + code
 }
 
-func docCodeSuffix(code string) string {
+// rejectedRef names a rejected document in the warnings by the id the
+// delete commands take and its document code
+func rejectedRef(id int, code string) string {
 	if code == "" {
-		return ""
+		return fmt.Sprintf(" (ID: %d)", id)
 	}
-	return " (document " + code + ")"
+	return fmt.Sprintf(" (ID: %d, document %s)", id, code)
 }
 
 const documentsUsage = "Usage: solo-cli documents [pfa | download <code> [-o path] [-f]]"
@@ -65,6 +67,9 @@ func runDocuments(args []string) {
 		c, _ := setupClient()
 		listTaxDeclarations(c)
 	case "pfa":
+		if len(flags.Args) > 1 {
+			exitErr(fmt.Errorf("unexpected argument %q\n%s", flags.Args[1], documentsUsage))
+		}
 		c, _ := setupClient()
 		listRegistrationDocuments(c)
 	case "download", "dl":
@@ -155,13 +160,29 @@ func downloadDocument(c *client.Client, code string, flags cmdFlags) {
 	}
 }
 
-// runExpensesCmd keeps "expenses" as the list and adds "expenses download"
+const expensesUsage = "Usage: solo-cli expenses [rejected | download <code> [-o path] [-f]]"
+
+// runExpensesCmd validates the expenses subcommands before signing in
 func runExpensesCmd(args []string) {
-	if len(args) == 0 || (args[0] != "download" && args[0] != "dl") {
+	if len(args) == 0 {
 		withPagedClient(runExpenses)
 		return
 	}
-	flags, err := parseCmdFlags(args[1:])
+	switch args[0] {
+	case "rejected":
+		if len(args) > 1 {
+			exitErr(fmt.Errorf("unexpected argument %q\n%s", args[1], expensesUsage))
+		}
+		withPagedClient(listRejectedExpenses)
+	case "download", "dl":
+		downloadExpenseDocument(args[1:])
+	default:
+		exitErr(fmt.Errorf("unknown expenses subcommand %q\n%s", args[0], expensesUsage))
+	}
+}
+
+func downloadExpenseDocument(args []string) {
+	flags, err := parseCmdFlags(args)
 	if err != nil {
 		exitErr(err)
 	}

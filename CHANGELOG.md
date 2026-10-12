@@ -8,6 +8,7 @@
 - **Declaratia Unica**: `solo-cli declaration [year]` (alias `du`) shows the D212 filing status, the taxes SOLO computed and the 25 May deadline with the days left
 - **Alerts**: `solo-cli alerts` lists the active dashboard alerts (VAT threshold, CAEN code update, notarial power of attorney) and `summary` prints them on stderr after its data
 - **Documents**: `solo-cli documents` lists filed tax declarations, `documents pfa` the Documente PFA files and `documents download <code>` saves one
+- **Rejected expense documents**: `expenses rejected` lists them with the ID that `queue delete` takes
 - **Downloads of originals**: `expenses download <code>` saves the original of an expense, queued or rejected document
 - **Cash flow register**: `solo-cli report [year]` saves the registrul de incasari si plati PDF
 - **Account commands**: `solo-cli subscription` (plan, status, price, next billing, card), `solo-cli referral` (link, prizes, rewards), `solo-cli clients [search]` (clients directory) and `solo-cli rates [YYYY-MM-DD]` (BNR exchange rates)
@@ -19,9 +20,9 @@
 
 ### Changed
 - **Sign in through cont.solo.ro**: login now uses the new SOLO.ro account pages and bridges the session to the app, falling back to the old login only if those pages change (never when cont.solo.ro is unreachable or shows a 2FA page). Accounts with two-factor authentication get a code prompt in the terminal, the "remember this device" option is always ticked so later runs skip the code for 14 days. Non-interactive runs (scripts, cron) never trigger a code SMS on their own: they stop with a message asking you to run `solo-cli` once in a terminal
-- **New last columns**: `revenues` ends with the invoice code, `expenses` and `queue` end with the document code when SOLO.ro has one. Existing columns keep their positions. The rejected expenses warning also shows the document code
+- **New last columns**: `revenues` ends with the invoice code, `expenses` and `queue` end with the document code when SOLO.ro has one. Existing columns keep their positions. The rejected expenses and revenue documents warnings also show the ID the delete commands take and the document code
 - **`queue delete` asks for confirmation**: like the other destructive commands it now needs `--yes` (`-y`) when not run in a terminal, accepts only ids shown by the queue or the rejected expenses, also deletes rejected expense documents and prints `Document deleted`. **Scripts** calling `solo-cli queue delete <id>` must add `-y`
-- **Stricter arguments**: unknown subcommands of `efactura`, `queue`, `revenues` and extra arguments to `alerts` now fail with a usage message before signing in instead of being ignored
+- **Stricter arguments**: unknown subcommands of `efactura`, `queue`, `revenues`, `expenses`, `documents` and extra arguments to `alerts`, `company` and `documents pfa` now fail with a usage message before signing in instead of being ignored
 - **Grouped help**: `solo-cli help` groups the commands by area with one line per subcommand
 - **TUI queue delete asks first**: `d` shows `Delete <name>? y/n` on the help row, `y` deletes and any other key cancels. Backspace no longer deletes
 - **Rejected warning blocks**: the Revenues and Expenses warnings list at most three documents plus an "and N more" line, so long rejected lists cannot push the table off small terminals

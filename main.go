@@ -57,6 +57,10 @@ func main() {
 	case "efactura", "einvoice", "ei":
 		runEFacturaCmd(cmdArgs)
 	case "company":
+		if len(cmdArgs) > 0 {
+			fmt.Fprintf(os.Stderr, "Error: unexpected argument %q\nUsage: solo-cli company\n", cmdArgs[0])
+			os.Exit(1)
+		}
 		withClient(runCompany)
 	case "taxes", "tax":
 		withClientArgs(runTaxes, cmdArgs)
@@ -134,6 +138,7 @@ e-Factura:
 
 Expenses:
   expenses              List expenses, last column is the document code if any (aliases: expense, exp)
+  expenses rejected     List rejected expense documents with the ID queue delete takes
   expenses download <code> [-o path] [-f]
                         Save an expense, queued or rejected document (alias: dl)
   queue                 List the expense queue (alias: q)

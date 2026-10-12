@@ -160,18 +160,39 @@ func TestDocumentsCommands(t *testing.T) {
 	dir := t.TempDir()
 
 	expectOutputs(t, e, api, dir, map[string]string{
-		"documents": "D212\t2025\t2026-05-20\tdoc_d212\nD300\taugust 2026\t2026-09-25\tdoc_d300\n",
-		"docs|pfa":  "Acte infiintare\tdoc_reg1\tcertificat.pdf\t2024-01-10\n",
-		"expenses":  "99.99 RON\tServicii\tHosting SRL\tdoc_exp1\n10.00 RON\tProtocol\tCafe SRL\n",
-		"queue":     "receipt.pdf\t3 days\tOVERDUE\t(ID: 42)\tdoc_q42\n",
+		"documents":         "D212\t2025\t2026-05-20\tdoc_d212\nD300\taugust 2026\t2026-09-25\tdoc_d300\n",
+		"docs|pfa":          "Acte infiintare\tdoc_reg1\tcertificat.pdf\t2024-01-10\n",
+		"expenses":          "99.99 RON\tServicii\tHosting SRL\tdoc_exp1\n10.00 RON\tProtocol\tCafe SRL\n",
+		"queue":             "receipt.pdf\t3 days\tOVERDUE\t(ID: 42)\tdoc_q42\n",
+		"expenses|rejected": "blurry.jpg\tunreadable\t(ID: 7)\tdoc_rej7\n",
 	})
 
 	_, errOut, _ := e.runIn(t, api, dir, "expenses")
-	if !strings.Contains(errOut, "blurry.jpg - unreadable (document doc_rej7)") {
-		t.Errorf("rejected warning must name the document code: %q", errOut)
+	if !strings.Contains(errOut, "blurry.jpg - unreadable (ID: 7, document doc_rej7)") {
+		t.Errorf("rejected warning must name the id and document code: %q", errOut)
 	}
-	if _, errOut, code := e.runIn(t, api, dir, "documents", "bogus"); code != 1 || !strings.Contains(errOut, "unknown documents subcommand") {
-		t.Errorf("bogus subcommand: %d %q", code, errOut)
+}
+
+// Typos and stray arguments fail before signing in instead of running the
+// plain listing
+func TestAccountArgumentErrors(t *testing.T) {
+	api, _ := newAccountMock(t)
+	e := newEnv(t, "good-password")
+	for want, args := range map[string][]string{
+		`unknown documents subcommand "bogus"`: {"documents", "bogus"},
+		`unknown expenses subcommand "bogus"`:  {"expenses", "bogus"},
+		`unknown expenses subcommand "-h"`:     {"expenses", "-h"},
+		`unexpected argument "x"`:              {"expenses", "rejected", "x"},
+		`unexpected argument "extra"`:          {"documents", "pfa", "extra"},
+		`unexpected argument "more"`:           {"company", "more"},
+	} {
+		out, errOut, code := e.runIn(t, api, t.TempDir(), args...)
+		if code != 1 || out != "" || !strings.Contains(errOut, want) {
+			t.Errorf("%v: exit %d, out %q, stderr %q", args, code, out, errOut)
+		}
+	}
+	if hits := api.ssoHits.Load(); hits != 0 {
+		t.Errorf("argument errors signed in %d times", hits)
 	}
 }
 

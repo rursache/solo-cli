@@ -39,6 +39,7 @@ e-Factura:
 
 Expenses:
   expenses              List expenses, last column is the document code if any (aliases: expense, exp)
+  expenses rejected     List rejected expense documents with the ID queue delete takes
   expenses download <code> [-o path] [-f]
                         Save an expense, queued or rejected document (alias: dl)
   queue                 List the expense queue (alias: q)
@@ -310,10 +311,11 @@ solo-cli efactura settings set --delay 0 -y # Change preferences (--delay 0|2, -
 
 ```bash
 solo-cli expenses                       # List expenses
+solo-cli expenses rejected              # List rejected expense documents
 solo-cli expenses download <code>       # Save the original document (alias: dl)
 ```
 
-Columns: amount and currency, category, supplier name and, when SOLO.ro has one, the document code as a fourth column. Rejected expenses are listed as a stderr warning first, with `(document CODE)` when they have one. `expenses download` takes a document code from `expenses`, `queue` or the rejected warning and saves `<code>.<ext>` by default
+Columns: amount and currency, category, supplier name and, when SOLO.ro has one, the document code as a fourth column. Rejected expenses are listed as a stderr warning first, each with `(ID: n, document CODE)`. `expenses rejected` columns: document name, reason, `(ID: n)`, document code when set. `expenses download` takes a document code from `expenses`, `queue` or the rejected warning and saves `<code>.<ext>` by default
 
 ### queue command
 
@@ -322,7 +324,7 @@ solo-cli queue                  # List pending expense documents (alias: q)
 solo-cli queue delete <id> -y   # Delete a queued or rejected expense document (aliases: del, rm)
 ```
 
-Columns: document name, days pending, OVERDUE or blank, `(ID: n)` and the document code when set. `queue delete` only accepts ids shown by the queue or the rejected expenses warning and prints `Document deleted`
+Columns: document name, days pending, OVERDUE or blank, `(ID: n)` and the document code when set. `queue delete` only accepts ids shown by `queue` or `expenses rejected` (also in the rejected warning of `expenses`) and prints `Document deleted`
 
 ### upload command
 

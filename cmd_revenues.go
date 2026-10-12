@@ -53,7 +53,7 @@ func warnRejectedRevenues(c *client.Client, pageSize int) {
 	}
 	fmt.Fprintf(os.Stderr, "⚠️  %d rejected revenue document(s):\n", len(rejected))
 	for _, r := range rejected {
-		fmt.Fprintf(os.Stderr, "   • %s - %s%s\n", r.DocumentName, r.Reason, docCodeSuffix(r.DocumentCode))
+		fmt.Fprintf(os.Stderr, "   • %s - %s%s\n", r.DocumentName, r.Reason, rejectedRef(r.Id, r.DocumentCode))
 	}
 	fmt.Fprintln(os.Stderr)
 }

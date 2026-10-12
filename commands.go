@@ -57,13 +57,19 @@ func runExpenses(c *client.Client, pageSize int) {
 	if lookupErr(err) == nil && len(rejected) > 0 {
 		fmt.Fprintf(os.Stderr, "⚠️  %d rejected expense(s):\n", len(rejected))
 		for _, r := range rejected {
-			fmt.Fprintf(os.Stderr, "   • %s - %s%s\n", r.DocumentName, r.Reason, docCodeSuffix(r.DocumentCode))
+			fmt.Fprintf(os.Stderr, "   • %s - %s%s\n", r.DocumentName, r.Reason, rejectedRef(r.Id, r.DocumentCode))
 		}
 		fmt.Fprintln(os.Stderr)
 	}
 
 	for _, e := range listed(c.ListAllExpenses(pageSize, "")) {
 		fmt.Printf("%.2f %s\t%s\t%s%s\n", e.Total, e.Currency.ShortName, e.Category, e.SupplierName, lastColumn(strOrEmpty(e.DocumentCode)))
+	}
+}
+
+func listRejectedExpenses(c *client.Client, pageSize int) {
+	for _, r := range listed(c.ListAllRejectedExpenses(pageSize)) {
+		fmt.Printf("%s\t%s\t(ID: %d)%s\n", r.DocumentName, r.Reason, r.Id, lastColumn(r.DocumentCode))
 	}
 }
 
@@ -276,5 +282,5 @@ func findExpenseDocument(c *client.Client, pageSize, id int) (string, error) {
 			return r.DocumentName, nil
 		}
 	}
-	return "", fmt.Errorf("no queued or rejected expense document with ID %d, see solo-cli queue and the warnings of solo-cli expenses", id)
+	return "", fmt.Errorf("no queued or rejected expense document with ID %d, see solo-cli queue and solo-cli expenses rejected", id)
 }

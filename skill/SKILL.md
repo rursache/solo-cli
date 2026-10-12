@@ -147,6 +147,11 @@ solo-cli exp              # Alias
 ```
 Output (tab-separated): amount and currency, category, supplier name, document code (only when SOLO.ro has one)
 
+Rejected expense documents with the id `queue delete` takes:
+```bash
+solo-cli expenses rejected   # name, reason, (ID: n), document code
+```
+
 Download the original document by its code (also works for queue and rejected document codes):
 ```bash
 solo-cli expenses download <code> [-o path] [-f]

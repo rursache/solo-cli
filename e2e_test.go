@@ -152,12 +152,14 @@ func newMockAPI(t *testing.T) *mockAPI {
 	mux.HandleFunc("/proxy/accounting/expenses/queued", func(w http.ResponseWriter, r *http.Request) {
 		m.servePage(w, r, totalNull, `{"Id":42,"DocumentName":"receipt.pdf","DaysPassed":3,"IsOverdue":true}`)
 	})
-	mux.HandleFunc("/proxy/accounting/expenses/42", func(w http.ResponseWriter, r *http.Request) {
+	deleteDoc := func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodDelete {
 			m.deleteHits.Add(1)
 		}
 		fmt.Fprint(w, `{}`)
-	})
+	}
+	mux.HandleFunc("/proxy/accounting/expenses/42", deleteDoc)
+	mux.HandleFunc("/proxy/accounting/expenses/7", deleteDoc)
 	mux.HandleFunc("/proxy/accounting/e-invoice/list-expenses", func(w http.ResponseWriter, r *http.Request) {
 		m.servePage(w, r, totalPage,
 			`{"SerialCode":"EF-9","TotalAmount":500,"CurrencyCode":"RON","InvoiceDate":"2026-06-01","PartyName":"Telecom SA"}`,
@@ -592,9 +594,19 @@ func TestE2EQueueDelete(t *testing.T) {
 		t.Errorf("DELETE hits = %d, want 1", got)
 	}
 
+	// The id shown by expenses rejected deletes the rejected document
+	out, errOut, code = e.run(t, api, "expenses", "rejected")
+	if code != 0 || out != "blurry.jpg\tunreadable\t(ID: 7)\n" {
+		t.Fatalf("expenses rejected: code %d, out %q, stderr %q", code, out, errOut)
+	}
+	out, errOut, code = e.run(t, api, "queue", "delete", "7", "-y")
+	if code != 0 || out != "Document deleted\n" || api.deleteHits.Load() != 2 {
+		t.Fatalf("rejected delete: code %d, out %q, stderr %q, hits %d", code, out, errOut, api.deleteHits.Load())
+	}
+
 	// Ids missing from the queued and rejected lists are refused
 	_, errOut, code = e.run(t, api, "queue", "delete", "99", "--yes")
-	if code != 1 || !strings.Contains(errOut, "no queued or rejected expense document with ID 99") {
+	if code != 1 || !strings.Contains(errOut, "no queued or rejected expense document with ID 99") || !strings.Contains(errOut, "expenses rejected") {
 		t.Errorf("unknown id: code %d, stderr %q", code, errOut)
 	}
 
@@ -602,8 +614,8 @@ func TestE2EQueueDelete(t *testing.T) {
 	if code != 1 || !strings.Contains(errOut, "invalid ID") {
 		t.Errorf("invalid id: code %d, stderr %q", code, errOut)
 	}
-	if got := api.deleteHits.Load(); got != 1 {
-		t.Errorf("DELETE hits = %d, want still 1", got)
+	if got := api.deleteHits.Load(); got != 2 {
+		t.Errorf("DELETE hits = %d, want still 2", got)
 	}
 }
 
