@@ -60,6 +60,8 @@ func main() {
 		withClient(runCompany)
 	case "taxes", "tax":
 		withClientArgs(runTaxes, cmdArgs)
+	case "alerts", "alert":
+		withClient(runAlerts)
 	case "declaration", "du":
 		withClientArgs(runDeclaration, cmdArgs)
 	case "upload", "up":
@@ -87,6 +89,7 @@ Usage:
 Commands:
   summary [year]  Show account summary (year, revenues, expenses, taxes)
   taxes [year]    Show tax breakdown with thresholds (alias: tax)
+  alerts          Show active account alerts (VAT threshold, CAEN update, procura)
   declaration     Show Declaratia Unica status for [year], default last year (alias: du)
   revenues        List revenue invoices, the last column is the invoice code (aliases: revenue, rev)
                   Subcommands: queue, rejected, delete <id>

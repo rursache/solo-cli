@@ -11,9 +11,9 @@ import (
 	"time"
 )
 
-// Read-only live checks for the tax estimate and Declaratia Unica dashboard
-// endpoints. Both send their nullable keys with null rather than omitting
-// them, so every mapped key is required
+// Read-only live checks for the tax estimate, Declaratia Unica dashboard
+// and dashboard alert endpoints. These endpoints send their nullable keys
+// with null rather than omitting them, so every mapped key is required
 
 // requireAllKeys checks that every json-tagged field of typ is a key of raw
 // and returns the decoded object for nested checks
@@ -99,4 +99,21 @@ func TestLiveTaxDeclarationDashboard(t *testing.T) {
 		}
 		t.Logf("%d: %s", year, d.DeclarationStatus)
 	}
+}
+
+func TestLiveAlerts(t *testing.T) {
+	c := liveClient(t)
+
+	requireAllKeys(t, fetchRaw(t, c, "/proxy/accounting/vat/alert-status", "/dashboard"), reflect.TypeOf(VATAlertStatus{}), "VATAlertStatus")
+	requireAllKeys(t, fetchRaw(t, c, "/proxy/accounting/caen-update/alert-status", "/dashboard"), reflect.TypeOf(CAENAlertStatus{}), "CAENAlertStatus")
+	requireAllKeys(t, fetchRaw(t, c, "/proxy/accounting/document-workflows/notarial-power-of-attorney/status", "/dashboard"), reflect.TypeOf(PowerOfAttorneyStatus{}), "PowerOfAttorneyStatus")
+
+	a := c.GetAlerts()
+	for _, e := range a.Errors {
+		t.Errorf("alert source failed: %v", e)
+	}
+	if a.VAT == nil || a.VAT.Status == "" || a.CAEN == nil || a.CAEN.Status == "" || a.PowerOfAttorney == nil || a.PowerOfAttorney.Status == "" {
+		t.Fatalf("alert statuses missing: %+v", a)
+	}
+	t.Logf("vat %s, caen %s, procura %s, %d active", a.VAT.Status, a.CAEN.Status, a.PowerOfAttorney.Status, len(a.Active()))
 }

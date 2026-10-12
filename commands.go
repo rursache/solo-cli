@@ -35,6 +35,7 @@ func runSummary(c *client.Client, args []string) {
 	if summary.HasTaxes {
 		fmt.Printf("Taxes: %.2f %s\n", summary.Taxes, summary.DisplayCurrency)
 	}
+	printSummaryAlerts(c)
 }
 
 func runRevenues(c *client.Client, args []string) {
