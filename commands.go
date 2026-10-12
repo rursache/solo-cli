@@ -197,6 +197,8 @@ func runTaxes(c *client.Client, args []string) {
 	fmt.Printf("Total Taxes:          %s\n", taxes.FormatRON(result.TotalTaxes))
 	fmt.Printf("Net After Tax:        %s\n", taxes.FormatRON(result.NetAfterTax))
 	fmt.Printf("Effective Tax Rate:   %.1f%%\n", result.EffectiveRate)
+
+	printSOLOEstimate(c, summary.Year, result)
 }
 
 func printThresholdHint(t taxes.ThresholdResult) {
